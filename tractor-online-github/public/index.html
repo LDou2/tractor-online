@@ -9,45 +9,53 @@
 <body>
 <div id="app">
 
+  <!-- Language toggle: visible in every view; the two rules boxes below
+       are deliberately NOT translated (they are already bilingual). -->
+  <div id="lang-bar">
+    <div class="lang-toggle">
+      <button id="lang-zh" type="button">中文</button><button id="lang-en" type="button" class="on">EN</button>
+    </div>
+  </div>
+
   <!-- Landing -->
   <section id="view-landing" class="view">
-    <h1>🚜 Tractor Online <span class="cn">升级拖拉机</span></h1>
-    <p class="sub">Real-time multiplayer Shengji — host it yourself, play with friends.</p>
-    <label>Your name <input id="in-name" maxlength="16" placeholder="e.g. Alex"></label>
-    <label>Table size
+    <h1 data-i18n="titleText">🚜 Tractor Online <span class="cn">升级拖拉机</span></h1>
+    <p class="sub" data-i18n="sub">Real-time multiplayer Shengji — host it yourself, play with friends.</p>
+    <label data-i18n="yourName">Your name <input id="in-name" maxlength="16" placeholder="e.g. Alex" data-i18n-ph="namePh"></label>
+    <label data-i18n="tableSize">Table size
       <select id="in-size">
-        <option value="4">2 v 2</option>
-        <option value="6" selected>3 v 3</option>
-        <option value="8">4 v 4</option>
-        <option value="10">5 v 5</option>
+        <option value="4" data-i18n="size2v2">2 v 2</option>
+        <option value="6" selected data-i18n="size3v3">3 v 3</option>
+        <option value="8" data-i18n="size4v4">4 v 4</option>
+        <option value="10" data-i18n="size5v5">5 v 5</option>
       </select>
     </label>
-    <label>Deal speed
+    <label data-i18n="dealSpeed">Deal speed
       <select id="in-speed">
-        <option value="instant">Instant — all at once</option>
-        <option value="fast" selected>Fast</option>
-        <option value="normal">Normal</option>
-        <option value="slow">Slow</option>
+        <option value="instant" data-i18n="speedInstant">Instant — all at once</option>
+        <option value="fast" selected data-i18n="speedFast">Fast</option>
+        <option value="normal" data-i18n="speedNormal">Normal</option>
+        <option value="slow" data-i18n="speedSlow">Slow</option>
       </select>
     </label>
     <div class="row">
-      <button id="btn-create" class="primary">Create Room</button>
+      <button id="btn-create" class="primary" data-i18n="createRoom">Create Room</button>
     </div>
     <div id="fixed-room" class="hidden">
-      <div class="divider">your fixed room</div>
-      <p class="hint">This link is for room <b id="fixed-code"></b>. Type your name above, then:</p>
+      <div class="divider" data-i18n="fixedDivider">your fixed room</div>
+      <p class="hint"><span data-i18n="fixedLead">This link is for room </span><b id="fixed-code"></b><span data-i18n="fixedTail">. Type your name above, then:</span></p>
       <div class="row">
-        <button id="btn-enter" class="primary">Enter Room</button>
+        <button id="btn-enter" class="primary" data-i18n="enterRoom">Enter Room</button>
       </div>
-      <p class="hint">First time, the room is created for you. After that, this same link joins it.</p>
+      <p class="hint" data-i18n="fixedNote">First time, the room is created for you. After that, this same link joins it.</p>
     </div>
-    <div class="divider">or join</div>
-    <label>Room code <input id="in-code" maxlength="6" placeholder="ABCDEF" autocapitalize="characters"></label>
+    <div class="divider" data-i18n="orJoin">or join</div>
+    <label data-i18n="roomCode">Room code <input id="in-code" maxlength="6" placeholder="ABCDEF" autocapitalize="characters"></label>
     <div class="row">
-      <button id="btn-join" class="primary">Join Room</button>
+      <button id="btn-join" class="primary" data-i18n="joinRoom">Join Room</button>
     </div>
     <p id="landing-err" class="err"></p>
-    <p class="hint">Human multiplayer only — no AI players in this server version.<br>
+    <p class="hint" data-i18n-html="landingNoteHtml">Human multiplayer only — no AI players in this server version.<br>
     If you disconnect, rejoin with the same name + code to reclaim your seat.</p>
 
     <div class="rules-wrap">
@@ -79,12 +87,12 @@
   <!-- Lobby -->
   <section id="view-lobby" class="view hidden">
     <div id="players-bar-lobby" class="players-bar"></div>
-    <h2>Room <span id="lobby-code" class="code"></span></h2>
-    <p class="sub">Share the code (or this page's link) with friends.</p>
+    <h2 data-i18n="roomWord">Room <span id="lobby-code" class="code"></span></h2>
+    <p class="sub" data-i18n="lobbySub">Share the code (or this page's link) with friends.</p>
     <div id="lobby-seats" class="seats"></div>
     <div class="row">
-      <button id="btn-start" class="primary">Start Round</button>
-      <button id="btn-leave-lobby">Leave</button>
+      <button id="btn-start" class="primary" data-i18n="startRound">Start Round</button>
+      <button id="btn-leave-lobby" data-i18n="leave">Leave</button>
     </div>
     <p id="lobby-err" class="err"></p>
   </section>
@@ -96,19 +104,19 @@
     <div id="phase-banner" class="banner"></div>
 
     <div id="bid-panel" class="panel hidden">
-      <h3>Bidding <span class="cn">叫主</span></h3>
+      <h3 data-i18n="biddingText">Bidding <span class="cn">叫主</span></h3>
       <p id="bid-status"></p>
       <div id="bid-current"></div>
       <div class="bid-grid" id="bid-buttons"></div>
       <p id="bid-note" class="hint"></p>
-      <button id="btn-pass-bid">Pass</button>
-      <p class="hint">Bid with your <b>level card</b>: 1 card, or a pair. During the deal you can bid with the level cards you hold so far.<br>
+      <button id="btn-pass-bid" data-i18n="pass">Pass</button>
+      <p class="hint" data-i18n-html="bidHintHtml">Bid with your <b>level card</b>: 1 card, or a pair. During the deal you can bid with the level cards you hold so far.<br>
       A later bid must show more cards: a pair overcalls a single, but a pair cannot overcall a pair (first bidder keeps it).</p>
     </div>
 
     <div id="bury-panel" class="panel hidden">
-      <h3>Bury the bottom <span class="cn">扣底</span></h3>
-      <p>You picked up the 6 bottom cards. Select <b>exactly 6</b> cards to bury.</p>
+      <h3 data-i18n="buryText">Bury the bottom <span class="cn">扣底</span></h3>
+      <p data-i18n-html="buryInfoHtml">You picked up the 6 bottom cards. Select <b>exactly 6</b> cards to bury.</p>
       <button id="btn-bury" class="primary">Bury selected (0/6)</button>
     </div>
 
@@ -116,8 +124,8 @@
 
     <div id="hand-zone">
       <div class="row space-between">
-        <h3>Your hand <span id="hand-count"></span></h3>
-        <button id="btn-play" class="primary">Play selected</button>
+        <h3 data-i18n="yourHand">Your hand <span id="hand-count"></span></h3>
+        <button id="btn-play" class="primary" data-i18n="playSelected">Play selected</button>
       </div>
       <div id="hand" class="hand"></div>
       <p id="play-hint" class="hint"></p>
@@ -126,8 +134,8 @@
     <div id="result-panel" class="panel hidden"></div>
 
     <div class="row">
-      <input id="in-chat" maxlength="200" placeholder="Chat…">
-      <button id="btn-chat">Send</button>
+      <input id="in-chat" maxlength="200" placeholder="Chat…" data-i18n-ph="chatPh">
+      <button id="btn-chat" data-i18n="send">Send</button>
     </div>
     <div id="log" class="log"></div>
     <div id="chatlog" class="log chat"></div>

@@ -34,6 +34,18 @@ button:disabled { opacity: .45; cursor: default; }
   z-index: 50; max-width: 90vw;
 }
 
+/* language toggle (sits above all views, always reachable) */
+#lang-bar { display: flex; justify-content: flex-end; margin-bottom: 2px; }
+.lang-toggle {
+  display: inline-flex; border: 1px solid #2c7a4b; border-radius: 999px;
+  overflow: hidden; background: #083d1f;
+}
+.lang-toggle button {
+  margin: 0; border: 0; border-radius: 0; background: transparent;
+  color: #cfe8d4; font-size: 13px; padding: 5px 14px;
+}
+.lang-toggle button.on { background: #ffd34d; color: #123; font-weight: bold; }
+
 /* scoreboard */
 .scorebar {
   display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center;
