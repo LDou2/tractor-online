@@ -342,7 +342,10 @@ describe('server: dispatch dealing + live bidding', () => {
     assert.equal(r.hands[0].length, 3 + 6); // full hand + the bottom picked up
   });
 
-  test('no-bid closing round flips the bottom: first level card sets trump, first bidder is ZhuangJia', () => {
+  // UPDATED 2026-11-20 (ZhuangJia rotation): the no-bid flip no longer
+  // stops at the first level card — ALL bottom cards are flipped and
+  // the LAST bottom card's suit is trump.
+  test('no-bid closing round flips ALL bottom cards: last bottom card sets trump, first bidder is ZhuangJia (round 1)', () => {
     const room = makeFullRoom('instant');
     const hands = [
       [C('C', 5), C('C', 6)],
@@ -350,7 +353,8 @@ describe('server: dispatch dealing + live bidding', () => {
       [C('D', 5), C('D', 6)],
       [C('S', 5), C('S', 6)],
     ];
-    // Bottom: 9♠, K♥, then the level card 2♦ — diamonds become trump.
+    // Bottom holds a level card 2♦ mid-way, but the LAST card is the
+    // ♣J — clubs become trump, not diamonds.
     const bottom = [C('S', 9), C('H', 13), C('D', 2), C('C', 9), C('C', 10), C('C', 11)];
     const r = startBidding(room, hands, bottom);
     for (let i = 0; i < 4; i++) {
@@ -358,13 +362,19 @@ describe('server: dispatch dealing + live bidding', () => {
     }
     settleAll(room);
     assert.equal(room.phase, 'burying');
-    assert.equal(r.trumpSuit, 'D');
-    assert.equal(r.dealerSeat, 0); // the designated first bidder
+    assert.equal(r.trumpSuit, 'C');
+    assert.equal(r.dealerSeat, 0); // round 1: the designated first-bidder seat
     assert.equal(r.hands[0].length, 2 + 6); // picked up the bottom
-    assert.ok(room.log.some((e) => /flipped the bottom/.test(e.msg)));
+    // The flip shows every bottom card, and the state carries them too.
+    const flipLog = room.log.map((e) => e.msg).find((m) => /flipped all the bottom/.test(m));
+    assert.ok(flipLog);
+    for (const s of ['♠9', '♥K', '♦2', '♣9', '♣10', '♣J']) assert.ok(flipLog.includes(s), s);
+    assert.equal(r.currentBid.flippedCards.length, 6);
   });
 
-  test('no-bid flip with no level card in the bottom: the last flipped suit is trump', () => {
+  // UPDATED 2026-11-20 (ZhuangJia rotation): same expectation as the old
+  // "last flipped suit" case, but now because the last card IS the ♣Q.
+  test('no-bid flip: the last bottom card is trump (♣Q last)', () => {
     const room = makeFullRoom('instant');
     const hands = [
       [C('C', 5), C('C', 6)],
@@ -372,7 +382,6 @@ describe('server: dispatch dealing + live bidding', () => {
       [C('D', 5), C('D', 6)],
       [C('S', 5), C('S', 6)],
     ];
-    // No 2s anywhere in the bottom; the last card flipped is the ♣Q.
     const bottom = [C('S', 9), C('H', 13), C('D', 9), C('S', 10), C('H', 9), C('C', 12)];
     const r = startBidding(room, hands, bottom);
     for (let i = 0; i < 4; i++) {
@@ -382,5 +391,220 @@ describe('server: dispatch dealing + live bidding', () => {
     assert.equal(room.phase, 'burying');
     assert.equal(r.trumpSuit, 'C');
     assert.equal(r.dealerSeat, 0);
+  });
+
+  test('no-bid flip with a joker last: trump is the last suited card before it', () => {
+    const room = makeFullRoom('instant');
+    const hands = [
+      [C('C', 5), C('C', 6)],
+      [C('C', 7), C('C', 8)],
+      [C('D', 5), C('D', 6)],
+      [C('S', 5), C('S', 6)],
+    ];
+    // A level card 2♥ sits early in the bottom and the last card is the
+    // big joker — trump follows the last SUITED card, the 5♦.
+    const bottom = [C('H', 2), C('S', 9), C('H', 13), C('C', 10), C('D', 5), C(null, 'BJ')];
+    const r = startBidding(room, hands, bottom);
+    for (let i = 0; i < 4; i++) {
+      assert.equal(S.passBid(room, r.bidTurn, false).ok, true);
+    }
+    settleAll(room);
+    assert.equal(room.phase, 'burying');
+    assert.equal(r.trumpSuit, 'D');
+    assert.equal(r.dealerSeat, 0);
+  });
+
+  test('no-bid flip with an all-joker bottom: trump falls back to spades', () => {
+    const room = makeFullRoom('instant');
+    const hands = [
+      [C('C', 5), C('C', 6)],
+      [C('C', 7), C('C', 8)],
+      [C('D', 5), C('D', 6)],
+      [C('S', 5), C('S', 6)],
+    ];
+    const bottom = [C(null, 'SJ'), C(null, 'BJ'), C(null, 'SJ'), C(null, 'BJ'), C(null, 'SJ'), C(null, 'BJ')];
+    const r = startBidding(room, hands, bottom);
+    for (let i = 0; i < 4; i++) {
+      assert.equal(S.passBid(room, r.bidTurn, false).ok, true);
+    }
+    settleAll(room);
+    assert.equal(room.phase, 'burying');
+    assert.equal(r.trumpSuit, 'S');
+    assert.equal(r.dealerSeat, 0);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* ZhuangJia rotation (owner's rule, 2026-11-20). Round 1: the final   */
+/* bidder is the ZhuangJia. From round 2 on the ZhuangJia seat is      */
+/* predetermined by rotation from the previous round's result (win:    */
+/* next seat on the same team, +2; loss: the immediate next seat, +1), */
+/* bidding decides only trump, and the ZhuangJia buries and leads the  */
+/* first trick — confirmed explicitly by the owner (point D).          */
+/* ------------------------------------------------------------------ */
+
+// Hand-built closing 'bidding' round for round 2, with the rotated
+// ZhuangJia seat already fixed (as startRound sets it in real play).
+function startBiddingRound2(room, hands, bottom, dealerSeat) {
+  const r = startBidding(room, hands, bottom);
+  room.roundNo = 2;
+  r.dealerSeat = dealerSeat;
+  return r;
+}
+
+// Play out a one-card-each final trick so endRound runs: the dealer
+// leads, everyone follows with their only (heart, non-point) card.
+function playOutLastTrick(room, { dealerSeat, defenderPoints }) {
+  const hands = [
+    [C('H', 3)], [C('H', 4)], [C('H', 6)], [C('H', 8)],
+  ];
+  hands[dealerSeat] = [C('H', 14)]; // the dealer always wins this trick
+  const r = startPlaying(room, hands, { dealerSeat, turn: dealerSeat, defenderPoints });
+  r.buried = [];
+  room.roundNo = 1;
+  const order = [0, 1, 2, 3].map((i) => (dealerSeat + i) % 4);
+  const ids = hands.map((h) => h[0].id);
+  for (const seat of order) {
+    const res = S.doPlay(room, seat, [ids[seat]], false);
+    assert.equal(res.ok, true, `seat ${seat} play: ${res.error || ''}`);
+  }
+  settle(room);
+  return r;
+}
+
+describe('server: ZhuangJia rotation', () => {
+  test('computeNextDealerSeat: win -> +2 seats (same team), loss -> +1 seat (other team), wrapping', () => {
+    assert.equal(S.computeNextDealerSeat(0, true, 4), 2);
+    assert.equal(S.computeNextDealerSeat(0, false, 4), 1);
+    assert.equal(S.computeNextDealerSeat(3, true, 4), 1); // wraps, still Blue
+    assert.equal(S.computeNextDealerSeat(3, false, 4), 0); // wraps to Gold
+    assert.equal(S.computeNextDealerSeat(5, true, 6), 1);
+    assert.equal(S.computeNextDealerSeat(5, false, 6), 0);
+  });
+
+  test('round-1 bid winner is the ZhuangJia (existing closing-round flow)', () => {
+    // Covered in detail by 'deal -> closing round keeps the high bid'
+    // above (dealerSeat ends on the bidder in round 1); here the same
+    // outcome from a plain instant round-1 bidding round.
+    const room = makeFullRoom('instant');
+    const hands = [
+      [C('H', 2), C('C', 5)],
+      [C('C', 7), C('C', 8)],
+      [C('D', 5), C('D', 6)],
+      [C('S', 5), C('S', 6)],
+    ];
+    const r = startBidding(room, hands, sixFiller());
+    assert.equal(r.dealerSeat, -1); // nobody predetermined in round 1
+    assert.equal(S.doBid(room, 0, 'H', 1, false).ok, true);
+    for (let i = 0; i < 3; i++) assert.equal(S.passBid(room, r.bidTurn, false).ok, true);
+    settleAll(room);
+    assert.equal(room.phase, 'burying');
+    assert.equal(r.dealerSeat, 0); // the final bidder
+    assert.equal(r.trumpSuit, 'H');
+  });
+
+  test('after a ZhuangJia-team win, round 2 starts with the +2 seat as predetermined ZhuangJia', () => {
+    const room = makeRoom(); // 4 seats, dealer seat 0 (Gold)
+    playOutLastTrick(room, { dealerSeat: 0, defenderPoints: 0 }); // defenders scored 0 < 80: dealer team wins
+    settleAll(room);
+    assert.equal(room.lastWinnerTeam, 0); // Gold keeps the deal
+    assert.equal(room.nextDealerSeat, 2); // next Gold seat
+    room.dealSpeed = 'instant';
+    S.startRound(room);
+    settleAll(room);
+    assert.equal(room.roundNo, 2);
+    assert.equal(room.round.dealerSeat, 2); // known before bidding starts
+    assert.equal(room.phase, 'bidding');
+  });
+
+  test('after a ZhuangJia-team loss, round 2 starts with the +1 seat as predetermined ZhuangJia', () => {
+    const room = makeRoom(); // dealer seat 1 (Blue) this time
+    playOutLastTrick(room, { dealerSeat: 1, defenderPoints: 80 }); // defenders reached 2x40: dealer team loses
+    settleAll(room);
+    assert.equal(room.lastWinnerTeam, 0); // the opposing (Gold) team takes the deal
+    assert.equal(room.nextDealerSeat, 2); // immediate next seat after seat 1 — a Gold seat
+    room.dealSpeed = 'instant';
+    S.startRound(room);
+    settleAll(room);
+    assert.equal(room.roundNo, 2);
+    assert.equal(room.round.dealerSeat, 2);
+    assert.equal(room.phase, 'bidding');
+  });
+
+  test('round 2: bidding winner is NOT the ZhuangJia — trump from the bid, ZhuangJia buries and leads the first trick', () => {
+    const room = makeFullRoom('instant');
+    const hands = [
+      [C('C', 5), C('C', 6)],   // seat 0 Alice
+      [C('H', 2), C('C', 7)],   // seat 1 Bob holds the level card 2♥
+      [C('D', 5), C('D', 6)],   // seat 2 Carol — predetermined ZhuangJia
+      [C('S', 5), C('S', 6)],   // seat 3 Dave
+    ];
+    const r = startBiddingRound2(room, hands, sixFiller(), 2);
+    assert.equal(S.passBid(room, 0, false).ok, true); // Alice passes
+    assert.equal(S.doBid(room, 1, 'H', 1, false).ok, true); // Bob bids hearts
+    assert.equal(S.passBid(room, 2, false).ok, true);
+    assert.equal(S.passBid(room, 3, false).ok, true);
+    assert.equal(S.passBid(room, 0, false).ok, true); // passing out ends bidding
+    settleAll(room);
+    assert.equal(room.phase, 'burying');
+    assert.equal(r.trumpSuit, 'H'); // trump came from Bob's bid
+    assert.equal(r.dealerSeat, 2); // but Carol is still the ZhuangJia
+    assert.equal(r.hands[2].length, 2 + 6); // Carol picked up the bottom
+    assert.equal(r.hands[1].length, 2); // Bob's hand untouched
+    // Point D (owner-confirmed): after burying, the FIRST TRICK is led
+    // by the ZhuangJia (seat 2), not by the bidding winner (seat 1).
+    const buryIds = r.hands[2].slice(0, 6).map((c) => c.id);
+    const bury = S.doBury(room, 2, buryIds, false);
+    settleAll(room);
+    assert.equal(bury.ok, true);
+    assert.equal(room.phase, 'playing');
+    assert.equal(r.turn, 2);
+  });
+
+  test('round 2 no-bid: flip sets trump from the last bottom card and the predetermined ZhuangJia takes the bottom', () => {
+    const room = makeFullRoom('instant');
+    const hands = [
+      [C('C', 5), C('C', 6)],
+      [C('C', 7), C('C', 8)],
+      [C('D', 5), C('D', 6)],
+      [C('S', 5), C('S', 6)],
+    ];
+    // Last bottom card is the K♠ — spades trump, whatever came before.
+    const bottom = [C('H', 2), C('D', 9), C('C', 10), C('H', 9), C('D', 11), C('S', 13)];
+    const r = startBiddingRound2(room, hands, bottom, 3); // Dave is ZhuangJia
+    for (let i = 0; i < 4; i++) {
+      assert.equal(S.passBid(room, r.bidTurn, false).ok, true);
+    }
+    settleAll(room);
+    assert.equal(room.phase, 'burying');
+    assert.equal(r.trumpSuit, 'S');
+    assert.equal(r.dealerSeat, 3); // unchanged by the flip
+    assert.equal(r.hands[3].length, 2 + 6);
+  });
+
+  test('entry page: Chinese rules box and new bullets present, deleted bullets gone', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+    // The new English bullets.
+    assert.ok(html.includes('Bidding rules'));
+    assert.ok(html.includes('before the ZhuangJia taking the "Dipai" (底牌)'));
+    assert.ok(html.includes('whether the player is on the ZhuangJia team or non-ZhuangJia team'));
+    assert.ok(html.includes('Bidding does not change the ZhuangJia'));
+    assert.ok(html.includes('all the bottom cards are flipped over one by one — the suit of the last bottom card is trump'));
+    // The Chinese box, with the same six rules.
+    assert.ok(html.includes('叫主规则（中文）'));
+    assert.ok(html.includes('叫主决定主牌花色'));
+    assert.ok(html.includes('发牌时即可叫主'));
+    assert.ok(html.includes('桌上任何人都可以叫主'));
+    assert.ok(html.includes('后叫主出示的牌必须比前一位多'));
+    assert.ok(html.includes('叫主不改变庄家'));
+    assert.ok(html.includes('若无人叫主，逐张翻开全部底牌'));
+    // Deleted / replaced text must be gone.
+    assert.ok(!html.includes('a pair is enough on its own'));
+    assert.ok(!html.includes('player whose bid stands is the ZhuangJia'));
+    assert.ok(!html.includes('first to bid becomes the ZhuangJia'));
+    assert.ok(!html.includes("doesn't matter which team the current ZhuangJia is on"));
+    assert.ok(!html.includes('flipped until a level card appears'));
   });
 });

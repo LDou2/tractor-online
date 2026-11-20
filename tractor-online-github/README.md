@@ -54,11 +54,16 @@ Then open http://localhost:3000 in your browser.
   — no minimum trump count for human players. A later bid must show more
   cards than the current one: a pair overcalls a single, but a pair
   cannot overcall a pair (first bidder keeps it), so once a pair stands
-  no overbid is possible. The bid winner is the 庄家: picks up the 6
-  bottom cards, buries 6, and leads. If nobody bids at all, the bottom
-  cards are flipped one by one until a level card appears — its suit is
-  trump (the last flipped card's suit if the bottom holds no level
-  card) — and the designated first bidder becomes the 庄家.
+  no overbid is possible. Who is the 庄家: in the **first round** of a
+  match the bid winner is the 庄家 — picks up the 6 bottom cards,
+  buries 6, and leads. In **every later round** the 庄家 seat is
+  predetermined before the deal by rotation from the previous round's
+  result (see Scoring), bidding decides only the trump suit, and the
+  predetermined 庄家 picks up the bottom, buries, and leads the first
+  trick. If nobody bids at all, **all** the bottom cards are flipped
+  one by one and the suit of the **last bottom card** is trump (the
+  last suited card before it if that card is a joker; ♠ if the bottom
+  holds no suited card at all).
 - **Trick play**: tractors (consecutive pairs/triples, incl. the
   high-trump chain — strict and consecutive only, in ascending order
   trump K → trump A → off-suit level → trump-suit level → small joker →
@@ -107,7 +112,12 @@ Then open http://localhost:3000 in your browser.
 - **Scoring** (n = decks): defenders win the round at `n×40` points —
   that is the ZhuangJia switch criterion (120 points in a 3-deck game):
   below it the dealer team advances and keeps the deal for the next
-  round; the defenders take over the deal only by reaching it.
+  round; the defenders take over the deal only by reaching it. The
+  庄家 **seat** rotates with the result: if the 庄家's team won the
+  round, the next 庄家 is the next seat on the same team; if it lost,
+  the next 庄家 is the immediate next seat (the other team). Scoring
+  is always the 庄家's team against the opposing team, regardless of
+  who won the bidding.
   抠底: defenders taking the last trick add 2× the buried bottom points.
   Dealer team: +1 level above `n×60` dealer points, +2 when defenders are
   below `n×20`, +3 when defenders score nothing. Defenders advance one
@@ -122,24 +132,23 @@ Then open http://localhost:3000 in your browser.
 it before joining.)
 
 - A bid names the trump suit: show 1 level card of a suit, or a pair of them. If your bid stands when bidding ends, that suit is trump.
-- You can bid while the cards are being dealt, using the level cards you have received so far. After the deal there is a final round of bidding, in turn.
-- If you hold the cards, you can bid them — a pair is enough on its own. There is no minimum trump count and no other restriction for human players.
-- Anyone at the table can bid — it doesn't matter which team the current ZhuangJia is on.
+- You can bid while the cards are being dealt, using the level cards you have received so far. After the deal there is a final round of bidding, in turn, before the ZhuangJia taking the "Dipai" (底牌).
+- Anyone at the table can bid — it doesn't matter whether the player is on the ZhuangJia team or non-ZhuangJia team.
 - A later bid must show MORE cards than the bid before it: a pair takes a single, but a pair cannot take a pair — the first bidder keeps it.
-- The player whose bid stands is the ZhuangJia: they pick up the bottom cards and bury the same number back.
-- If nobody bids at all, the bottom cards are flipped until a level card appears; its suit is trump, and the player who was first to bid becomes the ZhuangJia.
+- Bidding does not change the ZhuangJia. ZhuangJia will pick up the bottom cards and bury the same number back. The winner of Bidding can be ZhuangJia or non-ZhuangJia.
+- If nobody bids at all, all the bottom cards are flipped over one by one — the suit of the last bottom card is trump.
 
 ## Simplified vs the single-player app
 
 - Bids are made with the round level card (no free choice of bid rank).
-- The bid winner is always the 庄家 (no human-priority dealer rule).
+- The bid winner is the 庄家 in the first round only; in later rounds the 庄家 seat rotates by the previous round's result and bidding only sets trump (no human-priority dealer rule).
 - No AI players, no bots — all seats are human.
 - No "show AI hands" / dealt-cards views (everyone sees only their own hand).
 
 ## Tests
 
 ```bash
-npm test   # 148 tests (node --test): 137 engine tests + 11 server-flow tests
+npm test   # 157 tests (node --test): 137 engine tests + 20 server-flow tests
 ```
 
 ## Project layout
@@ -150,7 +159,7 @@ tractor-online/
   server.js          # Express + Socket.io authoritative server
   public/            # browser client (index.html, style.css, app.js)
   test/game.test.js  # engine tests
-  test/server.test.js # server-flow tests (failed-throw sequence, dispatch dealing + live bidding)
+  test/server.test.js # server-flow tests (failed-throw sequence, dispatch dealing + live bidding, ZhuangJia rotation)
   README.md
   package.json
 ```

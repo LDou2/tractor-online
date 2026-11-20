@@ -18,11 +18,16 @@
  *    trump-count minimum for humans. A later bid must show MORE cards
  *    than the current one: a pair takes a single, a pair cannot take a
  *    pair (so once a pair stands, no overbid is possible).
- *  - The bid winner is always the 庄家 (dealer): picks up the 6 bottom
- *    cards, buries 6, leads. If nobody bids at all, the bottom cards are
- *    flipped one by one until a level card appears — its suit is trump
- *    (the last flipped card's suit if the bottom holds no level card) —
- *    and the designated first bidder becomes the 庄家.
+ *  - Who is the 庄家 (dealer): in the FIRST round of a match the bid
+ *    winner is the 庄家 — picks up the 6 bottom cards, buries 6, leads.
+ *    In every later round the 庄家 seat is predetermined before the
+ *    deal by rotation from the previous round (see computeNextDealerSeat):
+ *    bidding then decides ONLY the trump suit, and the predetermined
+ *    庄家 picks up the bottom, buries and leads the first trick.
+ *    If nobody bids at all, ALL the bottom cards are flipped one by one
+ *    and the suit of the last bottom card is trump (the last suited card
+ *    before it if that card is a joker); the 庄家 — round 1: the
+ *    designated first-bidder seat — picks up the bottom as usual.
  *  - Defender 抠底 with only Jacks (single/pair/triple) resets the dealer
  *    team to level 2 (house rule from the app).
  *  - Throws (甩牌): a lead of 2+ same-type units (singles/pairs/triples)
@@ -84,6 +89,7 @@ function newRoom(code, name, socketId, tableSize, dealSpeed) {
     roundNo: 0,
     dealingTeam: 0,
     lastWinnerTeam: 0,
+    nextDealerSeat: null, // predetermined 庄家 seat for the next round (null before round 1 ends)
     matchWinner: -1,
     round: null,
     log: [],
@@ -133,9 +139,15 @@ function publicState(room) {
   };
   if (r) {
     st.roundLevel = r.level;
+    // The predetermined 庄家 (round 2+) is public from the start of the
+    // round, so clients can show who it is during dealing/bidding too;
+    // seats[].isDealer above carries the same seat. -1 in round 1, where
+    // the bid winner becomes 庄家 only when bidding ends.
+    st.dealerSeat = r.dealerSeat;
     if (room.phase === 'bidding' || room.phase === 'dealing') {
       st.bid = {
         turn: room.phase === 'bidding' ? r.bidTurn : -1, // no turns during the dispatch
+        dealerSeat: r.dealerSeat,
         current: r.currentBid ? { seat: r.currentBid.seat, suit: r.currentBid.bid.suit, cards: r.currentBid.bid.cards } : null,
         log: r.bids,
       };
@@ -212,6 +224,17 @@ function onTimeout(room) {
 }
 
 // --- round lifecycle ----------------------------------------------------------
+// 庄家 seat rotation (owner's rule, 2026-11-20): from round 2 on, the
+// next 庄家 is decided by the previous round's result, judged on the
+// existing points line (the team opposing the 庄家 had to capture
+// n*40 — 120 in a 3-deck game — to beat the 庄家's team):
+//   - 庄家's team WON  -> the next seat on the SAME team (+2, seats
+//     alternate Gold/Blue around the table);
+//   - 庄家's team LOST -> the immediate next seat (+1, the other team).
+function computeNextDealerSeat(dealerSeat, dealerTeamWon, tableSize) {
+  return dealerTeamWon ? (dealerSeat + 2) % tableSize : (dealerSeat + 1) % tableSize;
+}
+
 function startRound(room) {
   clearTimeout(room.autoTimer);
   clearDealTimer(room);
@@ -219,13 +242,20 @@ function startRound(room) {
   room.roundNo += 1;
   // The previous round's winning team deals: a winning dealer team stays
   // the ZhuangJia team; defenders become it only by winning (n*40+).
+  // That team is also the rotated 庄家 seat's team (same team on a win,
+  // the other team on a loss), so the round level below is the 庄家
+  // team's own level in every round after the first.
   room.dealingTeam = room.roundNo === 1 ? 0 : room.lastWinnerTeam;
   const level = room.levels[room.dealingTeam];
   const { hands, bottom, nDecks } = G.deal(room.tableSize);
   const firstBidder = (room.roundNo - 1) % room.tableSize;
+  // Round 1 has no predetermined 庄家 (the bid winner becomes it);
+  // later rounds start with the rotated seat already fixed.
+  const predeterminedDealer =
+    room.roundNo > 1 && room.nextDealerSeat != null ? room.nextDealerSeat : -1;
   room.round = {
     nDecks, hands, bottom, buried: null,
-    level, trumpSuit: null, dealerSeat: -1,
+    level, trumpSuit: null, dealerSeat: predeterminedDealer,
     bids: [], bidTurn: firstBidder,
     bidPassed: new Set(), currentBid: null,
     turn: -1, trickPlays: [], trickLead: null,
@@ -246,14 +276,14 @@ function startRound(room) {
     r.hands = hands.map(() => []);
     r.dealPos = 0;
     room.phase = 'dealing';
-    log(room, `Round ${room.roundNo} — dispatching cards (${DEAL_SPEED_NAMES[room.dealSpeed]}). Level ${level}; dealing team: ${room.dealingTeam === 0 ? 'Gold' : 'Blue'}. Bidding is live during the deal; ${nameOf(room, firstBidder)} starts the closing round.`);
+    log(room, `Round ${room.roundNo} — dispatching cards (${DEAL_SPEED_NAMES[room.dealSpeed]}). Level ${level}; dealing team: ${room.dealingTeam === 0 ? 'Gold' : 'Blue'}.${predeterminedDealer >= 0 ? ` ${nameOf(room, predeterminedDealer)} is 庄家 this round; bidding only sets trump.` : ''} Bidding is live during the deal; ${nameOf(room, firstBidder)} starts the closing round.`);
     sendState(room);
     room.dealTimer = setInterval(() => dealTick(room), ms);
     if (room.dealTimer.unref) room.dealTimer.unref();
     return;
   }
   room.phase = 'bidding';
-  log(room, `Round ${room.roundNo} dealt. Level ${level}; dealing team: ${room.dealingTeam === 0 ? 'Gold' : 'Blue'}. ${nameOf(room, room.round.bidTurn)} bids first.`);
+  log(room, `Round ${room.roundNo} dealt. Level ${level}; dealing team: ${room.dealingTeam === 0 ? 'Gold' : 'Blue'}.${predeterminedDealer >= 0 ? ` ${nameOf(room, predeterminedDealer)} is 庄家 this round; bidding only sets trump.` : ''} ${nameOf(room, room.round.bidTurn)} bids first.`);
   sendState(room);
   scheduleTimer(room);
 }
@@ -373,40 +403,49 @@ function cardShort(c) {
   return `${SUIT_SYM[c.suit]}${RANK_SHORT[c.rank] || c.rank}`;
 }
 
-// No-bid resolution (owner's explicit choice, 2026-11-20): flip the
-// bottom cards one by one until a level card appears — that card's suit
-// becomes trump. If the bottom holds no level card, trump is the suit of
-// the last card flipped. The designated first-bidder seat becomes the
-// ZhuangJia: they pick up the bottom and bury, exactly as a bid winner.
+// No-bid resolution (owner's rule, updated 2026-11-20): flip through
+// ALL the bottom cards one by one (the flip is shown in the room log and
+// carried in the bid log / state) — the suit of the LAST card in the
+// bottom is trump. If that last card is a joker (no suit), trump is the
+// suit of the last suited card before it; a bottom with no suited card
+// at all falls back to ♠ (kept from the original flip logic). The
+// 庄家 — round 1: the designated first-bidder seat (seat 0); later
+// rounds: the predetermined 庄家 — then picks up the bottom and buries.
 function resolveNoBid(room) {
   const r = room.round;
-  const seat = (room.roundNo - 1) % room.tableSize;
+  const seat = r.dealerSeat >= 0 ? r.dealerSeat : (room.roundNo - 1) % room.tableSize;
+  const flipped = r.bottom.slice(); // every bottom card, in bottom order
   let trumpSuit = null;
-  let lastSuit = null;
-  const flipped = [];
-  for (const c of r.bottom) {
-    flipped.push(c);
-    if (c.suit) lastSuit = c.suit;
-    if (c.suit && c.rank === r.level) { trumpSuit = c.suit; break; }
+  for (const c of flipped) {
+    if (c.suit) trumpSuit = c.suit; // ends as the last suited card's suit
   }
   // (A bottom of nothing but jokers has no suit at all — fall back to ♠.)
-  if (!trumpSuit) trumpSuit = lastSuit || 'S';
-  r.currentBid = { seat, bid: { suit: trumpSuit, rank: r.level, cards: 0 }, flipped: true };
-  r.bids.push({ seat, suit: trumpSuit, cards: 0, flipped: true });
-  log(room, `No bids — flipped the bottom (${flipped.map(cardShort).join(' ')}): ${suitName(trumpSuit)} is trump and ${nameOf(room, seat)} is 庄家.`);
+  if (!trumpSuit) trumpSuit = 'S';
+  r.currentBid = {
+    seat, bid: { suit: trumpSuit, rank: r.level, cards: 0 }, flipped: true,
+    flippedCards: flipped.map(pubCard),
+  };
+  r.bids.push({ seat, suit: trumpSuit, cards: 0, flipped: true, flippedCards: flipped.map(cardShort) });
+  log(room, `No bids — flipped all the bottom cards (${flipped.map(cardShort).join(' ')}): the last card makes ${suitName(trumpSuit)} trump. ${nameOf(room, seat)} is 庄家 and takes the bottom.`);
   endBidding(room);
 }
 
 function endBidding(room) {
   const r = room.round;
-  r.dealerSeat = r.currentBid.seat;
+  // 庄家 determination: round 1 (no predetermined seat) — the final
+  // bidder IS the 庄家. Later rounds — dealerSeat was fixed by rotation
+  // at round start and bidding does NOT change it; the bid only set the
+  // trump suit (in r.currentBid).
+  if (r.dealerSeat < 0) r.dealerSeat = r.currentBid.seat;
   r.trumpSuit = r.currentBid.bid.suit;
   r.hands[r.dealerSeat] = r.hands[r.dealerSeat].concat(r.bottom);
   room.phase = 'burying';
   if (r.currentBid.flipped) {
-    log(room, `${nameOf(room, r.dealerSeat)} picks up the bottom and buries 6.`);
-  } else {
+    log(room, `${nameOf(room, r.dealerSeat)} (庄家) picks up the bottom and buries 6.`);
+  } else if (r.currentBid.seat === r.dealerSeat) {
     log(room, `${nameOf(room, r.dealerSeat)} wins the bid (${suitName(r.trumpSuit)} trump), picks up the bottom and buries 6.`);
+  } else {
+    log(room, `${nameOf(room, r.currentBid.seat)} wins the bid (${suitName(r.trumpSuit)} trump); ${nameOf(room, r.dealerSeat)} (庄家) picks up the bottom and buries 6.`);
   }
   sendState(room);
   scheduleTimer(room);
@@ -714,7 +753,13 @@ function endRound(room) {
   // ZhuangJia switch criterion: the defenders take over the deal only
   // by winning the round (reaching n*40 in scoreRound — 120 in a 3-deck
   // game). On a dealer-team win the same dealer team keeps the deal.
+  // dealerTeam here is the 庄家's team (TEAM_OF_SEAT(dealerSeat)) — the
+  // scoring basis is the 庄家 vs the opposing team, never the bid
+  // winner's team.
   room.lastWinnerTeam = G.nextDealingTeam(dealerTeam, result);
+  // Next round's 庄家 seat, by rotation from THIS round's 庄家:
+  // this team won -> next seat on the same team; lost -> next seat.
+  room.nextDealerSeat = computeNextDealerSeat(r.dealerSeat, result.winner === 'dealer', room.tableSize);
   room.lastResult = {
     winnerTeam: room.lastWinnerTeam,
     winnerName: room.lastWinnerTeam === 0 ? 'Gold' : 'Blue',
@@ -746,8 +791,9 @@ function endRound(room) {
   sendState(room);
   if (room.phase === 'roundOver') {
     // Auto-advance: after a short pause on the result screen, deal the next
-    // round by itself (dealing team + level already advanced above, the new
-    // bid decides the next 庄家). Anyone may press "Next Round" to skip the wait.
+    // round by itself (dealing team + level already advanced above, and the
+    // next 庄家 seat already rotated — the new bid only decides trump).
+    // Anyone may press "Next Round" to skip the wait.
     room.autoNextAt = Date.now() + AUTO_NEXT_MS;
     clearTimeout(room.autoTimer);
     room.autoTimer = setTimeout(() => {
@@ -823,10 +869,12 @@ io.on('connection', (socket) => {
     if (room.phase !== 'lobby' && room.phase !== 'roundOver' && room.phase !== 'matchOver') return;
     if (filledSeats(room) < room.tableSize) return socket.emit('errorMsg', `Need ${room.tableSize} players to start.`);
     if (room.phase === 'matchOver') {
-      // New match: both teams back to level 2, Gold deals first again.
+      // New match: both teams back to level 2, Gold deals first again,
+      // and there is no predetermined 庄家 — round 1's bid winner is it.
       room.levels = [2, 2];
       room.roundNo = 0;
       room.lastWinnerTeam = 0;
+      room.nextDealerSeat = null;
       room.matchWinner = null;
     }
     startRound(room);
@@ -919,4 +967,4 @@ if (require.main === module) {
 
 // Exported for the server-flow tests (test/server.test.js); running
 // `node server.js` (npm start) is unaffected.
-module.exports = { server, io, rooms, newRoom, doPlay, doBid, passBid, dealTick, startRound };
+module.exports = { server, io, rooms, newRoom, doPlay, doBid, passBid, doBury, dealTick, startRound, computeNextDealerSeat };

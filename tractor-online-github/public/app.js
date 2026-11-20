@@ -164,14 +164,19 @@ function renderScorebar() {
 function renderBanner() {
   const b = $('phase-banner');
   const g = state.game;
+  // From round 2 the 庄家 is predetermined before the deal (the server
+  // sends dealerSeat with the dealing/bidding state); name them so the
+  // table knows whose bottom it will be. Round 1 has none yet (-1).
+  const dealerNote = state.dealerSeat >= 0 ? ` · 庄家: ${esc(seatName(state.dealerSeat))}` : '';
   if (state.phase === 'dealing') {
     const left = state.deal ? state.deal.cardsLeft : 0;
     const cur = state.bid && state.bid.current;
     b.textContent = `🃏 Dealing… ${left} card${left === 1 ? '' : 's'} left — bidding is live!` +
-      (cur ? ` Current bid: ${seatName(cur.seat)} — ${cur.cards === 2 ? 'pair' : '1 card'} of ${SUIT_SYM[cur.suit]}` : '');
+      (cur ? ` Current bid: ${seatName(cur.seat)} — ${cur.cards === 2 ? 'pair' : '1 card'} of ${SUIT_SYM[cur.suit]}` : '') +
+      dealerNote;
   } else if (state.phase === 'bidding') {
     const t = state.bid.turn === mySeat ? '👉 Your turn to bid' : `${esc(seatName(state.bid.turn))} is bidding…`;
-    b.textContent = t;
+    b.textContent = t + dealerNote;
   } else if (state.phase === 'burying') {
     b.textContent = g.dealerSeat === mySeat ? '👉 You are 庄家 — bury 6 cards' : `${esc(seatName(g.dealerSeat))} is burying the bottom…`;
   } else if (state.phase === 'playing') {

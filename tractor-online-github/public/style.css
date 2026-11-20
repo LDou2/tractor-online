@@ -82,7 +82,10 @@ button:disabled { opacity: .45; cursor: default; }
 }
 .pchip.active .you-tag { background: #123; color: #fff3cd; }
 
-/* entry-screen bidding rules box */
+/* entry-screen bidding rules boxes: English + Chinese side by side on
+   wide screens, stacked on narrow ones */
+.rules-wrap { display: flex; gap: 12px; flex-wrap: wrap; }
+.rules-wrap .rules { flex: 1 1 300px; }
 .rules {
   background: #0a4a24; border-radius: 12px; padding: 10px 14px; margin: 14px 0;
 }
