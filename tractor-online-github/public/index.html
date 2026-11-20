@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Tractor Online (升级拖拉机)</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- Landing -->
+  <section id="view-landing" class="view">
+    <h1>🚜 Tractor Online <span class="cn">升级拖拉机</span></h1>
+    <p class="sub">Real-time multiplayer Shengji — host it yourself, play with friends.</p>
+    <label>Your name <input id="in-name" maxlength="16" placeholder="e.g. Alex"></label>
+    <label>Table size
+      <select id="in-size">
+        <option value="4">2 v 2</option>
+        <option value="6" selected>3 v 3</option>
+        <option value="8">4 v 4</option>
+        <option value="10">5 v 5</option>
+      </select>
+    </label>
+    <label>Deal speed
+      <select id="in-speed">
+        <option value="instant">Instant — all at once</option>
+        <option value="fast" selected>Fast</option>
+        <option value="normal">Normal</option>
+        <option value="slow">Slow</option>
+      </select>
+    </label>
+    <div class="row">
+      <button id="btn-create" class="primary">Create Room</button>
+    </div>
+    <div id="fixed-room" class="hidden">
+      <div class="divider">your fixed room</div>
+      <p class="hint">This link is for room <b id="fixed-code"></b>. Type your name above, then:</p>
+      <div class="row">
+        <button id="btn-enter" class="primary">Enter Room</button>
+      </div>
+      <p class="hint">First time, the room is created for you. After that, this same link joins it.</p>
+    </div>
+    <div class="divider">or join</div>
+    <label>Room code <input id="in-code" maxlength="6" placeholder="ABCDEF" autocapitalize="characters"></label>
+    <div class="row">
+      <button id="btn-join" class="primary">Join Room</button>
+    </div>
+    <p id="landing-err" class="err"></p>
+    <p class="hint">Human multiplayer only — no AI players in this server version.<br>
+    If you disconnect, rejoin with the same name + code to reclaim your seat.</p>
+
+    <div class="rules">
+      <h3>Bidding rules <span class="cn">叫主规则</span></h3>
+      <ul>
+        <li>A bid names the trump suit: show 1 level card of a suit, or a pair of them. If your bid stands when bidding ends, that suit is trump.</li>
+        <li>You can bid while the cards are being dealt, using the level cards you have received so far. After the deal there is a final round of bidding, in turn.</li>
+        <li>If you hold the cards, you can bid them — a pair is enough on its own. There is no minimum trump count and no other restriction for human players.</li>
+        <li>Anyone at the table can bid — it doesn't matter which team the current ZhuangJia is on.</li>
+        <li>A later bid must show MORE cards than the bid before it: a pair takes a single, but a pair cannot take a pair — the first bidder keeps it.</li>
+        <li>The player whose bid stands is the ZhuangJia: they pick up the bottom cards and bury the same number back.</li>
+        <li>If nobody bids at all, the bottom cards are flipped until a level card appears; its suit is trump, and the player who was first to bid becomes the ZhuangJia.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Lobby -->
+  <section id="view-lobby" class="view hidden">
+    <div id="players-bar-lobby" class="players-bar"></div>
+    <h2>Room <span id="lobby-code" class="code"></span></h2>
+    <p class="sub">Share the code (or this page's link) with friends.</p>
+    <div id="lobby-seats" class="seats"></div>
+    <div class="row">
+      <button id="btn-start" class="primary">Start Round</button>
+      <button id="btn-leave-lobby">Leave</button>
+    </div>
+    <p id="lobby-err" class="err"></p>
+  </section>
+
+  <!-- Game -->
+  <section id="view-game" class="view hidden">
+    <div id="players-bar" class="players-bar"></div>
+    <div id="scorebar" class="scorebar"></div>
+    <div id="phase-banner" class="banner"></div>
+
+    <div id="bid-panel" class="panel hidden">
+      <h3>Bidding <span class="cn">叫主</span></h3>
+      <p id="bid-status"></p>
+      <div id="bid-current"></div>
+      <div class="bid-grid" id="bid-buttons"></div>
+      <p id="bid-note" class="hint"></p>
+      <button id="btn-pass-bid">Pass</button>
+      <p class="hint">Bid with your <b>level card</b>: 1 card, or a pair. During the deal you can bid with the level cards you hold so far.<br>
+      A later bid must show more cards: a pair overcalls a single, but a pair cannot overcall a pair (first bidder keeps it).</p>
+    </div>
+
+    <div id="bury-panel" class="panel hidden">
+      <h3>Bury the bottom <span class="cn">扣底</span></h3>
+      <p>You picked up the 6 bottom cards. Select <b>exactly 6</b> cards to bury.</p>
+      <button id="btn-bury" class="primary">Bury selected (0/6)</button>
+    </div>
+
+    <div id="table" class="table"></div>
+
+    <div id="hand-zone">
+      <div class="row space-between">
+        <h3>Your hand <span id="hand-count"></span></h3>
+        <button id="btn-play" class="primary">Play selected</button>
+      </div>
+      <div id="hand" class="hand"></div>
+      <p id="play-hint" class="hint"></p>
+    </div>
+
+    <div id="result-panel" class="panel hidden"></div>
+
+    <div class="row">
+      <input id="in-chat" maxlength="200" placeholder="Chat…">
+      <button id="btn-chat">Send</button>
+    </div>
+    <div id="log" class="log"></div>
+    <div id="chatlog" class="log chat"></div>
+  </section>
+
+</div>
+<div id="toast" class="toast hidden"></div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
