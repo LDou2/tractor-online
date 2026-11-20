@@ -664,6 +664,73 @@ describe('follow cascade', () => {
   });
 });
 
+describe('follow shortfall padding (level 2, spades trump)', () => {
+  const L2 = 2;
+  // LD's diamond pair-tractor lead: A♦A♦ K♦K♦ (the reported live-game case).
+  const leadTractor = () => {
+    const cards = [...pair('D', 14), ...pair('D', 13)];
+    const lead = G.validateLead([...cards, C('C', 5)], cards, [], L2, TRUMP);
+    assert.equal(lead.ok && lead.type, 'tractor');
+    assert.equal(lead.effSuit, 'D');
+    return lead;
+  };
+
+  test('reported case: only 3 effective diamonds (2♦ is trump) -> off-suit padding accepted', () => {
+    const lead = leadTractor();
+    // GZ's hand: J♦ 8♦ 8♦ are his only diamonds — 2♦ is the level card,
+    // i.e. trump, so he is one diamond short of the 4-card follow.
+    const hand = [C('D', 11), C('D', 8), C('D', 8), C('D', 2), C('H', 4), C('H', 9), C('C', 7)];
+    const play = [hand[0], hand[1], hand[2], hand[4]]; // J♦ 8♦ 8♦ + 4♥ padding
+    assert.equal(G.validateFollow(hand, play, lead, L2, TRUMP).ok, true);
+    // Padding with the 2♦ itself (played as the trump it is) is also legal.
+    const play2 = [hand[0], hand[1], hand[2], hand[3]];
+    assert.equal(G.validateFollow(hand, play2, lead, L2, TRUMP).ok, true);
+  });
+
+  test('enough diamonds held: off-suit padding is rejected', () => {
+    const lead = leadTractor();
+    const hand = [C('D', 11), C('D', 8), C('D', 8), C('D', 5), C('H', 4)];
+    const play = [hand[0], hand[1], hand[2], hand[4]]; // 4 diamonds held, pads anyway
+    assert.equal(G.validateFollow(hand, play, lead, L2, TRUMP).ok, false);
+  });
+
+  test('short on diamonds but holds one back: rejected (must include all held)', () => {
+    const lead = leadTractor();
+    const hand = [C('D', 11), C('D', 8), C('D', 8), C('D', 2), C('H', 4), C('H', 9)];
+    const play = [hand[0], hand[1], hand[4], hand[5]]; // only 2 of 3 diamonds + 2 padding
+    assert.equal(G.validateFollow(hand, play, lead, L2, TRUMP).ok, false);
+  });
+
+  test('pair lead: exactly 1 diamond held -> 1 diamond + 1 padding accepted', () => {
+    const leadCards = pair('D', 9);
+    const lead = G.validateLead([...leadCards, C('C', 5)], leadCards, [], L2, TRUMP);
+    assert.equal(lead.ok && lead.type, 'pair');
+    const hand = [C('D', 6), C('D', 2), C('H', 4)]; // one diamond; 2♦ is trump
+    assert.equal(G.validateFollow(hand, [hand[0], hand[2]], lead, L2, TRUMP).ok, true);
+    // ...but skipping the one held diamond entirely is still refused.
+    assert.equal(G.validateFollow(hand, [hand[1], hand[2]], lead, L2, TRUMP).ok, false);
+  });
+
+  test('single lead: void in diamonds (only the trump 2♦) is free', () => {
+    const leadCards = [C('D', 9)];
+    const lead = G.validateLead([...leadCards, C('C', 5)], leadCards, [], L2, TRUMP);
+    assert.equal(lead.ok && lead.type, 'single');
+    const hand = [C('D', 2), C('H', 4)]; // 2♦ is trump: no effective diamond at all
+    assert.equal(G.validateFollow(hand, [hand[1]], lead, L2, TRUMP).ok, true);
+  });
+
+  test('throw lead: short on the led suit pads the same way', () => {
+    // Pair throw ♦9♦9 + ♦5♦5 (non-consecutive pairs), 4 cards.
+    const throwCards = [...pair('D', 9), ...pair('D', 5)];
+    const others = [[C('D', 3)], [C('H', 3)], [C('C', 3)]];
+    const lead = G.validateLead([...throwCards, C('C', 4)], throwCards, others, L2, TRUMP);
+    assert.equal(lead.ok && lead.type, 'throw');
+    const hand = [C('D', 11), C('D', 8), C('D', 8), C('D', 2), C('H', 4)];
+    const play = [hand[0], hand[1], hand[2], hand[4]]; // 3 diamonds + 4♥ padding
+    assert.equal(G.validateFollow(hand, play, lead, L2, TRUMP).ok, true);
+  });
+});
+
 describe('unbeatable-singles rule', () => {
   test('accept: each single outranks every other player\'s cards of the suit', () => {
     const hand = [C('S', 14), C('S', 13), C('H', 5)];

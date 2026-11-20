@@ -45,6 +45,10 @@
  *    tractors, and ♦3/♦4/♦5 is weaker than ♦5/♦6/♦7). A lone level pair
  *    (♦4♦4) is still a trump pair.
  *  - Follow rules: must follow the led effective suit; void players are free.
+ *    A follower holding fewer cards of the led effective suit than the
+ *    lead's count plays all of them and pads the rest with any other cards
+ *    (the shortfall is measured on effective suit: a printed-suit level
+ *    card is trump and never counts toward — or is forced as — its suit).
  *    Combination cascade: triple lead -> triple if held, else pair + padding;
  *    quad lead -> quad, else triple, else pair, padded to 4. A larger combo
  *    (triple/quad/pair) is "protected" — never broken — when the player can
@@ -874,10 +878,21 @@ function validateFollow(hand, play, lead, level, trumpSuit) {
   const suitCards = hand.filter(isSuitMember);
   if (suitCards.length === 0) return { ok: true, note: 'void-free' }; // void: free (may trump-kill)
 
+  // The follow OBLIGATION is measured on the led EFFECTIVE suit only: a
+  // printed-suit level card is trump, so it never counts toward the number
+  // of led-suit cards a follower holds (and can never be forced out as a
+  // card of its printed suit). It may still be PLAYED as a suit member —
+  // the suit-face tractor path above — but that is the follower's choice.
+  // Short on the effective suit: the follower plays every effective-suit
+  // card held and pads the rest with anything (off-suit cards, or the
+  // level card played as trump). Enough of the suit: no padding at all —
+  // every played card must be a suit member, as before.
+  const effHeld = hand.filter((c) => effectiveSuit(c, level, trumpSuit) === S);
   const playSuit = play.filter(isSuitMember);
-  if (suitCards.length < N) {
+  if (effHeld.length < N) {
     // Not enough of the led suit: must include every card of it held.
-    if (playSuit.length !== suitCards.length) return { ok: false, reason: 'must-include-all-held-suit' };
+    const playEff = play.filter((c) => effectiveSuit(c, level, trumpSuit) === S);
+    if (playEff.length !== effHeld.length) return { ok: false, reason: 'must-include-all-held-suit' };
     return { ok: true };
   }
   if (playSuit.length !== N) return { ok: false, reason: 'must-follow-suit' };
