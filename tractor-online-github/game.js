@@ -11,6 +11,11 @@
  *  - Table sizes 2v2..5v5 (4/6/8/10 players). nDecks = players/2.
  *    26 cards per player + 6 bottom cards; jokers are added/removed to make
  *    the counts work (4p: +2 jokers, 6p: exact, 8p: -2 jokers, 10p: -4 jokers).
+ *  - 1v1 mode (2 players, owner 2026-11-20): ONE 54-card set plus one
+ *    extra big joker and one extra small joker = a 56-card pool (every
+ *    suit card once, 2 BJ + 2 SJ). 25 cards each + 6 bottom; scoring
+ *    runs at nDecks = 1 (the n*40 line is 40; a deck holds 100 points).
+ *    With a single copy of each level card, only single-card bids exist.
  *  - Trump group = trump-suit cards + ALL level cards + jokers.
  *    Trump strength (level L, trump suit T), high to low:
  *      BJ > SJ > L of suit T > L of other suits (all equal) >
@@ -184,6 +189,22 @@ function shuffle(deck) {
   return deck;
 }
 
+// Shared dealing tail: shuffle the pool, deal round-robin (one card at
+// a time around the table — the order the server's timed dispatch
+// replays), then set aside the 6 bottom cards. The pool must be exactly
+// handSize * numPlayers + 6 cards.
+function dealOut(deck, numPlayers, handSize) {
+  shuffle(deck);
+  const hands = Array.from({ length: numPlayers }, () => []);
+  for (let r = 0; r < handSize; r++) {
+    for (let p = 0; p < numPlayers; p++) hands[p].push(deck.pop());
+  }
+  const bottom = [];
+  for (let i = 0; i < 6; i++) bottom.push(deck.pop());
+  if (deck.length !== 0) throw new Error('deal: card count mismatch');
+  return { hands, bottom };
+}
+
 // Deal 26 cards per player + 6 bottom cards. numPlayers: 4, 6, 8, 10.
 function deal(numPlayers) {
   if (![4, 6, 8, 10].includes(numPlayers)) {
@@ -210,15 +231,26 @@ function deal(numPlayers) {
     }
     if (n > 0) throw new Error('deal: not enough jokers to remove');
   }
-  shuffle(deck);
-  const hands = Array.from({ length: numPlayers }, () => []);
-  for (let r = 0; r < 26; r++) {
-    for (let p = 0; p < numPlayers; p++) hands[p].push(deck.pop());
-  }
-  const bottom = [];
-  for (let i = 0; i < 6; i++) bottom.push(deck.pop());
-  if (deck.length !== 0) throw new Error('deal: card count mismatch');
+  const { hands, bottom } = dealOut(deck, numPlayers, 26);
   return { hands, bottom, nDecks };
+}
+
+// 1v1 pool (owner 2026-11-20): ONE standard 54-card set plus one extra
+// big joker and one extra small joker — 56 cards: every suit card once,
+// 2 big jokers, 2 small jokers.
+function buildPool1v1() {
+  const pool = buildDeck(1); // ids 1..54
+  let nextId = pool.length + 1;
+  pool.push({ id: nextId++, suit: null, rank: 'SJ' });
+  pool.push({ id: nextId++, suit: null, rank: 'BJ' });
+  return pool;
+}
+
+// Deal a 1v1 round: 25 cards to each player + 6 bottom (25+25+6 = 56).
+// Scoring runs at nDecks = 1 (defenders' line is 40 points).
+function deal1v1() {
+  const { hands, bottom } = dealOut(buildPool1v1(), 2, 25);
+  return { hands, bottom, nDecks: 1 };
 }
 
 // ---------------------------------------------------------------------------
@@ -1057,6 +1089,29 @@ function scoreRound({ nDecks, defenderTrickPoints, bottomPoints, defendersWonLas
   // "Dealer holds": trick points + buried bottom (always > n*60 on a dealer win).
   const dealerPoints = n * 100 - defenderTrickPoints;
 
+  if (n === 1) {
+    // 1v1 scoring table (owner's spec, 2026-11-20) — REPLACES the generic
+    // band formula for the 1-deck game only. T = the non-dealer side's
+    // total (defenderTotal above; one deck holds 100 points):
+    //   T = 0        -> dealer side +3
+    //   0 < T < 20   -> dealer side +2
+    //   20 <= T < 40 -> dealer side +1
+    //   40 <= T < 80 -> NEITHER side gains a level, but the deal passes:
+    //                   winner is 'defenders' with 0 levels, so rotation
+    //                   (nextDealingTeam / computeNextDealerSeat) still
+    //                   hands the deal to the non-dealer side.
+    //   T >= 80      -> defenders +1 (flat — no higher bands)
+    const T = defenderTotal;
+    if (T >= 80) {
+      return { winner: 'defenders', defenderLevels: 1, dealerLevels: 0, defenderTotal, dealerPoints };
+    }
+    if (T >= 40) {
+      return { winner: 'defenders', defenderLevels: 0, dealerLevels: 0, defenderTotal, dealerPoints };
+    }
+    const dealerLevels = T === 0 ? 3 : T < 20 ? 2 : 1;
+    return { winner: 'dealer', dealerLevels, defenderLevels: 0, defenderTotal, dealerPoints };
+  }
+
   if (defenderTotal >= n * 40) {
     const defenderLevels = 1 + Math.floor((defenderTotal - n * 40) / (n * 20));
     return { winner: 'defenders', defenderLevels, dealerLevels: 0, defenderTotal, dealerPoints };
@@ -1109,6 +1164,8 @@ module.exports = {
   buildDeck,
   shuffle,
   deal,
+  buildPool1v1,
+  deal1v1,
   possibleTrumpCount,
   validateBid,
   bidOutranks,

@@ -24,6 +24,7 @@
     <label data-i18n="yourName">Your name <input id="in-name" maxlength="16" placeholder="e.g. Alex" data-i18n-ph="namePh"></label>
     <label data-i18n="tableSize">Table size
       <select id="in-size">
+        <option value="2" data-i18n="size1v1">1 v 1 (1 deck + extra jokers)</option>
         <option value="4" data-i18n="size2v2">2 v 2</option>
         <option value="6" selected data-i18n="size3v3">3 v 3</option>
         <option value="8" data-i18n="size4v4">4 v 4</option>
@@ -110,7 +111,7 @@
       <div class="bid-grid" id="bid-buttons"></div>
       <p id="bid-note" class="hint"></p>
       <button id="btn-pass-bid" data-i18n="pass">Pass</button>
-      <p class="hint" data-i18n-html="bidHintHtml">Bid with your <b>level card</b>: 1 card, or a pair. During the deal you can bid with the level cards you hold so far.<br>
+      <p class="hint" id="bid-hint" data-i18n-html="bidHintHtml">Bid with your <b>level card</b>: 1 card, or a pair. During the deal you can bid with the level cards you hold so far.<br>
       A later bid must show more cards: a pair overcalls a single, but a pair cannot overcall a pair (first bidder keeps it).</p>
     </div>
 

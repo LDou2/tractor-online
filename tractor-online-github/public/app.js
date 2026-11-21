@@ -24,6 +24,7 @@ const I18N = {
     yourName: 'Your name ',
     namePh: 'e.g. Alex',
     tableSize: 'Table size ',
+    size1v1: '1 v 1 (1 deck + extra jokers)',
     size2v2: '2 v 2', size3v3: '3 v 3', size4v4: '4 v 4', size5v5: '5 v 5',
     dealSpeed: 'Deal speed ',
     speedInstant: 'Instant — all at once', speedFast: 'Fast', speedNormal: 'Normal', speedSlow: 'Slow',
@@ -44,6 +45,7 @@ const I18N = {
     biddingText: 'Bidding ',
     buryText: 'Bury the bottom ',
     bidHintHtml: 'Bid with your <b>level card</b>: 1 card, or a pair. During the deal you can bid with the level cards you hold so far.<br>A later bid must show more cards: a pair overcalls a single, but a pair cannot overcall a pair (first bidder keeps it).',
+    bidHintHtml1v1: 'Bid with your <b>level card</b>: 1 card only — one deck, so no pair bids exist. During the deal you can bid with the level cards you hold so far.<br>The first bid stands: an equal single cannot overcall it.',
     pass: 'Pass',
     buryInfoHtml: 'You picked up the 6 bottom cards. Select <b>exactly 6</b> cards to bury.',
     yourHand: 'Your hand ',
@@ -84,6 +86,7 @@ const I18N = {
     bidTilePair: 'pair',
     bidTileSingle: '1 card',
     notePairBid: 'A pair is already bid — no overbid is possible.',
+    noteNoOverbid1v1: 'A bid already stands — in 1 v 1 it cannot be overbid (single deck, no pairs).',
     noteNeedPair: 'Needs 2 cards to overbid — a pair of level cards takes the single.',
     noteNoLevelYet: 'No level cards yet — your bid tiles open as they arrive.',
     bidLogPassed: '{name} passed',
@@ -98,6 +101,7 @@ const I18N = {
     selectCardsFirst: 'Select cards first.',
     resultTitle: 'Round {n} result',
     resultWins: '<b>{team} team</b> wins the round (+{n} level{s}).',
+    resultTakeover: '<b>{team} team</b> takes over as ZhuangJia — no level change.',
     defenderTotalOpen: 'Defender total: <b>{total}</b> (trick pts {trick}',
     defenderTotalClose: ') · Levels now: ',
     jackReset: '🂡 Defender 抠底 with only Jacks — dealer team reset to level 2.',
@@ -112,6 +116,7 @@ const I18N = {
     yourName: '你的名字 ',
     namePh: '例如：小明',
     tableSize: '桌子人数 ',
+    size1v1: '1 对 1（一副牌 + 额外大小王）',
     size2v2: '2 对 2', size3v3: '3 对 3', size4v4: '4 对 4', size5v5: '5 对 5',
     dealSpeed: '发牌速度 ',
     speedInstant: '瞬间——一次发完', speedFast: '快', speedNormal: '正常', speedSlow: '慢',
@@ -132,6 +137,7 @@ const I18N = {
     biddingText: '',
     buryText: '',
     bidHintHtml: '用你的<b>级牌</b>叫主：单张，或一对。发牌过程中可用已发到手的级牌叫主。<br>后叫者出示的牌必须更多：一对可压单张，但一对不能压一对（先叫者优先）。',
+    bidHintHtml1v1: '用你的<b>级牌</b>叫主：只能单张——一副牌，没有对子可叫。发牌过程中可用已发到手的级牌叫主。<br>先叫者优先：相同的单张不能压过先叫。',
     pass: '过',
     buryInfoHtml: '你拿起了 6 张底牌。请选择<b>正好 6</b> 张牌扣下。',
     yourHand: '你的手牌 ',
@@ -172,6 +178,7 @@ const I18N = {
     bidTilePair: '一对',
     bidTileSingle: '单张',
     notePairBid: '已有人叫了一对——无法再压。',
+    noteNoOverbid1v1: '已有人叫主——1 对 1 中无法再压（单副牌，没有对子）。',
     noteNeedPair: '需要一对才能压过——一对级牌可压单张。',
     noteNoLevelYet: '还没有级牌——发到级牌后叫主按钮会自动开放。',
     bidLogPassed: '{name} 过',
@@ -186,6 +193,7 @@ const I18N = {
     selectCardsFirst: '请先选牌。',
     resultTitle: '第 {n} 局结果',
     resultWins: '<b>{team}</b> 赢下本局（升 {n} 级）。',
+    resultTakeover: '<b>{team}</b> 接庄——本局不升级。',
     defenderTotalOpen: '防守方总分：<b>{total}</b>（墩分 {trick}',
     defenderTotalClose: '）· 当前级别：',
     jackReset: '🂡 防守方抠底牌全是 J——庄家队打回 2 级。',
@@ -442,11 +450,15 @@ function renderBid() {
     ? t('currentBidLine', { name: esc(seatName(cur.seat)), kind: t(cur.cards === 2 ? 'bidTilePair' : 'bidTileSingle'), sym: SUIT_SYM[cur.suit] })
     : t('noBidsYet');
   $('bid-current').classList.toggle('has-bid', !!cur);
+  // 1v1 rooms play a single deck: each suit's level card exists exactly
+  // once, so a pair bid can never be held — only single tiles are shown.
+  const is1v1 = state.tableSize === 2;
+  $('bid-hint').innerHTML = t(is1v1 ? 'bidHintHtml1v1' : 'bidHintHtml');
   const grid = $('bid-buttons');
   grid.innerHTML = '';
   for (const s of ['S', 'H', 'D', 'C']) {
     const held = heldCount(s);
-    for (const n of [1, 2]) {
+    for (const n of (is1v1 ? [1] : [1, 2])) {
       const btn = document.createElement('button');
       btn.innerHTML = `${SUIT_SYM[s]}<small>${t('bidTileLabel', { kind: t(n === 2 ? 'bidTilePair' : 'bidTileSingle'), held })}</small>`;
       if (s === 'H' || s === 'D') btn.classList.add('red');
@@ -462,7 +474,9 @@ function renderBid() {
     }
   }
   const note = $('bid-note');
-  if (cur && cur.cards === 2) {
+  if (cur && is1v1) {
+    note.textContent = t('noteNoOverbid1v1');
+  } else if (cur && cur.cards === 2) {
     note.textContent = t('notePairBid');
   } else if (cur && cur.cards === 1) {
     const canOver = ['S', 'H', 'D', 'C'].some((s) => heldCount(s) >= 2);
@@ -561,10 +575,16 @@ function renderResult() {
   if (!show) return;
   // The server sends the winning side's level gain directly — at
   // roundOver there is no live `game` state to compare teams against.
+  // lv === 0 happens in exactly one case: the 1v1 takeover band
+  // (non-dealer total 40–79), where the deal genuinely changes hands
+  // with no level gained. Say that — a bare "升 0 级" would read as the
+  // old display bug, where 0 was shown for a side that HAD gained.
   const lv = r.winnerLevels;
   p.innerHTML =
     `<h3>${t('resultTitle', { n: r.roundNo })}</h3>` +
-    `<p>${t('resultWins', { team: teamLabel(r.winnerName), n: lv, s: lv > 1 ? 's' : '' })}</p>` +
+    `<p>${lv === 0
+      ? t('resultTakeover', { team: teamLabel(r.winnerName) })
+      : t('resultWins', { team: teamLabel(r.winnerName), n: lv, s: lv > 1 ? 's' : '' })}</p>` +
     `<p>${t('defenderTotalOpen', { total: r.defenderTotal, trick: r.defenderTrickPoints })}` +
     (r.defendersWonLastTrick ? ` + 抠底 2×${r.bottomPoints}` : '') + t('defenderTotalClose') +
     `<span class="gold" style="color:#ffd34d">${t('teamGold')} ${r.levels[0]}</span> / ` +

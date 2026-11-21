@@ -5,7 +5,7 @@ Built from scratch with **Node.js + Express + Socket.io** (server) and
 **vanilla HTML/CSS/JS** (client, no build step).
 
 Friends each open the hosted URL in their browser: one creates a room
-(2v2, 3v3, 4v4 or 5v5), the others join with a 6-character room code, and
+(1v1, 2v2, 3v3, 4v4 or 5v5), the others join with a 6-character room code, and
 they play together live. The server is authoritative — every bid, bury and
 play is validated against the rules engine (`game.js`), and each player
 only ever receives their own hand.
@@ -45,6 +45,12 @@ Then open http://localhost:3000 in your browser.
 ## Rules implemented
 
 - **Tables**: 2v2 / 3v3 / 4v4 / 5v5 (Gold vs Blue). 26 cards each + 6 bottom cards.
+- **1v1 table**: 2 players, one seat each. The pool is ONE 54-card set plus
+  one extra big joker and one extra small joker (56 cards: every suit card
+  once, 2 big + 2 small jokers) — 25 cards each + 6 bottom. Scoring uses
+  the owner's dedicated 1v1 table (see Scoring) instead of the generic
+  bands. With only one copy of each level card, bids are single-card
+  only (no pair bids exist in this mode).
 - **Bidding** (live during the deal, real-table style): unless the room's
   deal speed is Instant, the cards are dispatched one at a time and you
   may bid **while they arrive**, using the level cards you hold so far;
@@ -123,6 +129,11 @@ Then open http://localhost:3000 in your browser.
   below `n×20`, +3 when defenders score nothing. Defenders advance one
   level per extra `n×20`. Each team keeps its own level; first past level A
   wins the match.
+  **1 v 1 exception** (one deck; owner's table, 2026-11-20): the bands
+  above are replaced, keyed on the non-dealer side's total T — T = 0:
+  dealer +3; 1–19: dealer +2; 20–39: dealer +1; 40–79: **no level change
+  for either side, but the deal still passes** to the non-dealer;
+  80+: non-dealer +1 (flat) and takes the deal.
 - **House rule**: defender 抠底 with only Jacks (single/pair/triple) resets
   the dealer team to level 2.
 
@@ -148,7 +159,7 @@ it before joining.)
 ## Tests
 
 ```bash
-npm test   # 157 tests (node --test): 137 engine tests + 20 server-flow tests
+npm test   # 188 tests (node --test): 153 engine tests + 35 server-flow tests
 ```
 
 ## Project layout

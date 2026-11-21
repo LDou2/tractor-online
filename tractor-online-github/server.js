@@ -7,6 +7,15 @@
  * public state is broadcast to the room and each player receives only
  * their own hand.
  *
+ * Table sizes: 2v2..5v5 team games, plus a 1v1 mode (tableSize 2, owner
+ * 2026-11-20): one 54-card set + one extra big and one extra small
+ * joker (56 cards), 25 each + 6 bottom, scoring at nDecks = 1 (the
+ * defenders' line is 40 points). With one copy of each level card, only
+ * single-card bids can occur in 1v1. Everything else — live bidding
+ * during the dispatch, ZhuangJia rotation (win: same seat, +2 mod 2;
+ * loss: the other player, +1), no-bid bottom flip, manual Next Round —
+ * is shared with the team games.
+ *
  * Bidding (real-table style, like the single-player app):
  *  - The cards are dispatched one at a time at the room's deal speed
  *    (Instant / Fast / Normal / Slow, chosen by the room creator) and
@@ -243,7 +252,9 @@ function startRound(room) {
   // team's own level in every round after the first.
   room.dealingTeam = room.roundNo === 1 ? 0 : room.lastWinnerTeam;
   const level = room.levels[room.dealingTeam];
-  const { hands, bottom, nDecks } = G.deal(room.tableSize);
+  // 1v1 rooms (2 seats) deal from the single-deck + extra-joker-pair
+  // pool (25 each + 6 bottom, nDecks 1); team rooms deal as before.
+  const { hands, bottom, nDecks } = room.tableSize === 2 ? G.deal1v1() : G.deal(room.tableSize);
   const firstBidder = (room.roundNo - 1) % room.tableSize;
   // Round 1 has no predetermined 庄家 (the bid winner becomes it);
   // later rounds start with the rotated seat already fixed.
@@ -786,8 +797,11 @@ function endRound(room) {
     room.matchWinner = applied.matchWon;
     log(room, `Match over — ${applied.matchWon === 0 ? 'Gold' : 'Blue'} team wins past level A!`);
   } else {
+    const gain = result.winner === 'defenders' ? result.defenderLevels : result.dealerLevels;
     log(room, `Round over: ${room.lastResult.winnerName} team wins the round` +
-      (result.winner === 'defenders' ? ` (+${result.defenderLevels} level${result.defenderLevels > 1 ? 's' : ''})` : ` (+${result.dealerLevels} level${result.dealerLevels > 1 ? 's' : ''})`) +
+      // The 1v1 takeover band (non-dealer total 40–79) changes the deal
+      // with NO level gained — say so; never print "(+0 levels)".
+      (gain === 0 ? ' (takes over the deal — no level change)' : ` (+${gain} level${gain > 1 ? 's' : ''})`) +
       (jackReset ? ' — dealer reset to level 2 (Jacks 抠底)' : '') +
       `. Levels now Gold ${room.levels[0]} / Blue ${room.levels[1]}.`);
   }
@@ -805,13 +819,13 @@ io.on('connection', (socket) => {
   const mySeat = () => (socket.data.room ? socket.data.room.seat : -1);
 
   const doCreate = (name, tableSize, forcedCode, dealSpeed) => {
-    tableSize = [4, 6, 8, 10].includes(Number(tableSize)) ? Number(tableSize) : 6;
+    tableSize = [2, 4, 6, 8, 10].includes(Number(tableSize)) ? Number(tableSize) : 6;
     const code = forcedCode || makeCode();
     const room = newRoom(code, cleanName(name), socket.id, tableSize, dealSpeed);
     rooms.set(code, room);
     socket.data.room = { code, seat: 0 };
     socket.join(code);
-    log(room, `${room.seats[0].name} created a ${tableSize / 2}v${tableSize / 2} room (deal speed: ${DEAL_SPEED_NAMES[room.dealSpeed]}).`);
+    log(room, `${room.seats[0].name} created a ${tableSize / 2}v${tableSize / 2} room (deal speed: ${DEAL_SPEED_NAMES[room.dealSpeed]})${tableSize === 2 ? ' — 1v1: one deck plus an extra joker pair, 25 cards each, 6 bottom' : ''}.`);
     socket.emit('joined', { code, seat: 0 });
     sendState(room);
   };

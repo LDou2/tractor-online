@@ -717,3 +717,285 @@ describe('server: round-end summary & manual advance', () => {
     assert.ok(js.includes('r.winnerLevels'));
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* 1v1 mode (owner 2026-11-20): a 2-seat room deals from ONE 54-card   */
+/* set + an extra big and small joker (56 cards), 25 each + 6 bottom,  */
+/* scoring at nDecks = 1 under the owner's 1v1 table (UPDATED          */
+/* 2026-11-20: 40–79 = takeover with no levels). Only single-card      */
+/* bids can occur — each suit's level card exists exactly once.        */
+/* ------------------------------------------------------------------ */
+
+const G = require('../game');
+const NAMES_1V1 = ['Alice', 'Bob'];
+
+function makeRoom1v1(dealSpeed) {
+  const room = S.newRoom('TEST1V', 'Alice', null, 2, dealSpeed);
+  room.seats = NAMES_1V1.map((name) => ({ name, socketId: null, connected: false }));
+  room.log = [];
+  return room;
+}
+
+// Play out a one-card-each final trick in a 1v1 room so endRound runs
+// with a preset non-dealer point total: the dealer leads the A♥ and
+// wins the trick (no point cards in it, defenders do not 抠底), so the
+// round's T is exactly `defenderPoints`.
+function playOutLastTrick1v1(room, { dealerSeat, defenderPoints }) {
+  const hands = [[C('H', 3)], [C('H', 4)]];
+  hands[dealerSeat] = [C('H', 14)]; // the dealer always wins this trick
+  room.phase = 'playing';
+  room.roundNo = 1;
+  room.round = {
+    nDecks: 1, hands, bottom: [], buried: [],
+    level: 2, trumpSuit: 'S', dealerSeat,
+    bids: [], bidTurn: 0, bidPassed: new Set(), currentBid: null,
+    turn: dealerSeat, trickPlays: [], trickLead: null,
+    defenderTrickPoints: defenderPoints, dealerTrickPoints: 100 - defenderPoints,
+    tricksPlayed: 24, lastTrickWinner: -1, lastWinCards: [], forcedLead: null,
+    dealHands: null, dealPos: 0,
+  };
+  const r = room.round;
+  for (const seat of [dealerSeat, 1 - dealerSeat]) {
+    const res = S.doPlay(room, seat, [hands[seat][0].id], false);
+    assert.equal(res.ok, true, `seat ${seat} play: ${res.error || ''}`);
+  }
+  settleAll(room);
+  return r;
+}
+
+// Hand-built closing 'bidding' round for a 1v1 room (level 2).
+function startBidding1v1(room, hands, bottom) {
+  room.phase = 'bidding';
+  room.roundNo = 1;
+  room.round = {
+    nDecks: 1, hands, bottom, buried: null,
+    level: 2, trumpSuit: null, dealerSeat: -1,
+    bids: [], bidTurn: 0, bidPassed: new Set(), currentBid: null,
+    turn: -1, trickPlays: [], trickLead: null,
+    defenderTrickPoints: 0, dealerTrickPoints: 0, tricksPlayed: 0,
+    lastTrickWinner: -1, lastWinCards: [], forcedLead: null,
+    dealHands: null, dealPos: 0,
+  };
+  return room.round;
+}
+
+describe('server: 1v1 mode', () => {
+  test('rotation with 2 seats: win -> same seat (+2 mod 2), loss -> the other player (+1)', () => {
+    assert.equal(S.computeNextDealerSeat(0, true, 2), 0);
+    assert.equal(S.computeNextDealerSeat(0, false, 2), 1);
+    assert.equal(S.computeNextDealerSeat(1, true, 2), 1);
+    assert.equal(S.computeNextDealerSeat(1, false, 2), 0);
+  });
+
+  test('instant deal: 25 / 25 + 6 bottom from the 56-card pool, nDecks 1', () => {
+    const room = makeRoom1v1('instant');
+    assert.equal(room.tableSize, 2);
+    assert.equal(room.seats.length, 2);
+    S.startRound(room);
+    settleAll(room);
+    assert.equal(room.phase, 'bidding');
+    const r = room.round;
+    assert.equal(r.nDecks, 1);
+    assert.equal(r.hands[0].length, 25);
+    assert.equal(r.hands[1].length, 25);
+    assert.equal(r.bottom.length, 6);
+    const all = [...r.hands.flat(), ...r.bottom];
+    assert.equal(all.length, 56);
+    assert.equal(new Set(all.map((c) => c.id)).size, 56);
+    assert.equal(all.filter((c) => c.rank === 'BJ').length, 2);
+    assert.equal(all.filter((c) => c.rank === 'SJ').length, 2);
+    assert.equal(new Set(all.filter((c) => c.suit !== null).map((c) => `${c.suit}:${c.rank}`)).size, 52);
+  });
+
+  test('timed dispatch: cards arrive one at a time, bottom set aside, closes into bidding at 25 each', () => {
+    const room = makeRoom1v1('fast');
+    S.startRound(room);
+    assert.equal(room.phase, 'dealing');
+    assert.equal(room.round.bottom.length, 6); // set aside before dealing starts
+    assert.ok(room.round.hands.every((h) => h.length === 0));
+    let guard = 0;
+    while (room.phase === 'dealing' && guard++ < 500) S.dealTick(room);
+    settleAll(room);
+    assert.equal(room.phase, 'bidding');
+    assert.equal(room.round.hands[0].length, 25);
+    assert.equal(room.round.hands[1].length, 25);
+    assert.equal(room.dealTimer, null);
+  });
+
+  test('a single-card bid sets trump; a pair bid is impossible (only one copy of each level card)', () => {
+    const room = makeRoom1v1('instant');
+    const hands = [
+      [C('H', 2), C('C', 5), C('C', 6)], // Alice holds the only 2♥ in the pool
+      [C('C', 7), C('C', 8), C('C', 9)],
+    ];
+    const r = startBidding1v1(room, hands, sixFiller());
+    // A pair of 2♥ can never be held in 1v1 — the bid is rejected.
+    let res = S.doBid(room, 0, 'H', 2, false);
+    assert.equal(res.ok, false);
+    assert.match(res.error, /do not hold/i);
+    // The single 2♥ bids fine.
+    res = S.doBid(room, 0, 'H', 1, false);
+    assert.equal(res.ok, true);
+    // Bob's pass ends the closing round (n - 1 = 1 pass needed).
+    assert.equal(S.passBid(room, 1, false).ok, true);
+    settleAll(room);
+    assert.equal(room.phase, 'burying');
+    assert.equal(r.trumpSuit, 'H');
+    assert.equal(r.dealerSeat, 0); // round 1: the final bidder is 庄家
+    assert.equal(r.hands[0].length, 3 + 6); // picked up the bottom
+  });
+
+  test('no-bid flip works in 1v1: last bottom card sets trump, first bidder takes the bottom', () => {
+    const room = makeRoom1v1('instant');
+    const hands = [
+      [C('C', 5), C('C', 6)],
+      [C('C', 7), C('C', 8)],
+    ];
+    const bottom = [C('S', 9), C('H', 13), C('D', 9), C('S', 10), C('H', 9), C('C', 12)];
+    const r = startBidding1v1(room, hands, bottom);
+    assert.equal(S.passBid(room, 0, false).ok, true);
+    assert.equal(S.passBid(room, 1, false).ok, true);
+    settleAll(room);
+    assert.equal(room.phase, 'burying');
+    assert.equal(r.trumpSuit, 'C'); // the last bottom card is the ♣Q
+    assert.equal(r.dealerSeat, 0);
+    assert.equal(r.hands[0].length, 2 + 6);
+  });
+
+  test('a complete scripted 1v1 round: bury, all 25 tricks, 40-point line, levels and rotation for round 2', () => {
+    const room = makeRoom1v1('instant');
+    S.startRound(room);
+    const r = room.round;
+    // Closing bidding: the first seat holding a level card bids its
+    // suit (single — the only bid that exists in 1v1); everyone else
+    // passes. If nobody holds one, both pass and the bottom flip runs.
+    let guard = 0;
+    while (room.phase === 'bidding' && guard++ < 10) {
+      const seat = r.bidTurn;
+      let acted = false;
+      if (!r.currentBid) {
+        for (const s of G.SUITS) {
+          if (r.hands[seat].some((c) => c.suit === s && c.rank === r.level)) {
+            assert.equal(S.doBid(room, seat, s, 1, false).ok, true);
+            acted = true;
+            break;
+          }
+        }
+      }
+      if (!acted) assert.equal(S.passBid(room, seat, false).ok, true);
+    }
+    assert.equal(room.phase, 'burying');
+    const dealerSeat = r.dealerSeat;
+    assert.ok(dealerSeat === 0 || dealerSeat === 1);
+    assert.equal(r.hands[dealerSeat].length, 25 + 6);
+    // Bury the first 6 cards of the dealer's hand.
+    const buryIds = r.hands[dealerSeat].slice(0, 6).map((c) => c.id);
+    assert.equal(S.doBury(room, dealerSeat, buryIds, false).ok, true);
+    assert.equal(room.phase, 'playing');
+    assert.equal(r.turn, dealerSeat); // the 庄家 leads the first trick
+    // Play out every trick with singles: leader plays their lowest
+    // card; the follower answers with their lowest card of the led
+    // effective suit, or their lowest card overall when void.
+    guard = 0;
+    while (room.phase === 'playing' && guard++ < 200) {
+      const seat = r.turn;
+      const hand = r.hands[seat];
+      const byStrength = hand.slice().sort((a, b) =>
+        G.cardStrength(a, r.level, r.trumpSuit) - G.cardStrength(b, r.level, r.trumpSuit));
+      let card;
+      if (r.trickPlays.length === 0) {
+        card = byStrength[0];
+      } else {
+        const S0 = r.trickLead.effSuit;
+        card = byStrength.find((c) => G.effectiveSuit(c, r.level, r.trumpSuit) === S0) || byStrength[0];
+      }
+      const res = S.doPlay(room, seat, [card.id], false);
+      assert.equal(res.ok, true, `seat ${seat} play: ${res.error || ''}`);
+    }
+    settleAll(room);
+    assert.equal(room.phase, 'roundOver');
+    assert.equal(r.tricksPlayed, 25);
+    assert.ok(r.hands.every((h) => h.length === 0));
+    // Scoring under the owner's 1v1 table (2026-11-20) and the summary
+    // the client renders. T = the non-dealer side's total.
+    const lr = room.lastResult;
+    const dealerTeam = G.TEAM_OF_SEAT(dealerSeat);
+    const defenderTeam = 1 - dealerTeam;
+    const T = lr.defenderTotal;
+    const defendersWon = T >= 40;
+    const expDef = T >= 80 ? 1 : 0;                          // +1 only at 80+ (flat)
+    const expDeal = T >= 40 ? 0 : T === 0 ? 3 : T < 20 ? 2 : 1;
+    assert.equal(lr.winnerTeam, defendersWon ? defenderTeam : dealerTeam);
+    assert.equal(lr.defenderLevels, expDef);
+    assert.equal(lr.dealerLevels, expDeal);
+    assert.equal(lr.winnerLevels, defendersWon ? expDef : expDeal);
+    if (!lr.jackReset) {
+      assert.equal(room.levels[defenderTeam], 2 + expDef);
+      assert.equal(room.levels[dealerTeam], 2 + expDeal);
+    } else {
+      assert.equal(room.levels[dealerTeam], 2); // Jacks 抠底 reset
+      assert.equal(room.levels[defenderTeam], 2 + expDef);
+    }
+    // Rotation for game 2: win -> same seat, loss -> the other player.
+    assert.equal(room.nextDealerSeat, S.computeNextDealerSeat(dealerSeat, !defendersWon, 2));
+    assert.equal(room.nextDealerSeat, defendersWon ? 1 - dealerSeat : dealerSeat);
+    // Round 2 starts with the rotated 庄家 predetermined, 25 each again.
+    S.startRound(room);
+    settleAll(room);
+    assert.equal(room.roundNo, 2);
+    assert.equal(room.phase, 'bidding');
+    assert.equal(room.round.dealerSeat, room.nextDealerSeat);
+    assert.equal(room.round.nDecks, 1);
+    assert.equal(room.round.hands[0].length, 25);
+    assert.equal(room.round.hands[1].length, 25);
+    assert.equal(room.dealingTeam, lr.winnerTeam);
+  });
+
+  test('a scripted 1v1 round in the 40-79 takeover band: levels unchanged, the other player is next ZhuangJia', () => {
+    // UPDATED 2026-11-20 (owner's 1v1 table): 40 <= T < 80 takes the
+    // deal with NO level for either side — winnerLevels 0 here is the
+    // truth, not the old "升0级" display bug.
+    for (const T of [40, 55, 79]) {
+      const room = makeRoom1v1('instant'); // dealer seat 0 (Alice, Gold)
+      playOutLastTrick1v1(room, { dealerSeat: 0, defenderPoints: T });
+      assert.equal(room.phase, 'roundOver');
+      const lr = room.lastResult;
+      assert.equal(lr.defenderTotal, T);
+      assert.equal(lr.winnerTeam, 1);        // the non-dealer side takes over
+      assert.equal(lr.winnerLevels, 0);      // ...with no level gained
+      assert.equal(lr.defenderLevels, 0);
+      assert.equal(lr.dealerLevels, 0);
+      assert.deepEqual(room.levels, [2, 2]); // neither side moved
+      assert.equal(room.nextDealerSeat, 1);  // the other player deals next
+      // Round 2 starts with Bob as the predetermined ZhuangJia.
+      S.startRound(room);
+      settleAll(room);
+      assert.equal(room.roundNo, 2);
+      assert.equal(room.phase, 'bidding');
+      assert.equal(room.round.dealerSeat, 1);
+      assert.equal(room.round.nDecks, 1);
+      assert.equal(room.round.hands[0].length, 25);
+      assert.equal(room.round.hands[1].length, 25);
+    }
+  });
+
+  test('client: the creation page offers a clearly labeled 1v1 option; bid tiles are single-only in 1v1', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+    const js = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
+    assert.ok(html.includes('<option value="2" data-i18n="size1v1">'));
+    assert.ok(js.includes("size1v1: '1 v 1 (1 deck + extra jokers)'"));
+    assert.ok(js.includes('size1v1:')); // zh label present too
+    assert.ok(js.includes('noteNoOverbid1v1'));
+    assert.ok(js.includes('bidHintHtml1v1'));
+    // The tile loop offers only the single tile in a 2-seat room.
+    assert.ok(js.includes('is1v1 ? [1] : [1, 2]'));
+    // The takeover band (winnerLevels 0) renders its own summary line
+    // in BOTH languages — never the bare "升 0 级" of resultWins.
+    assert.ok(js.includes('takes over as ZhuangJia — no level change.'));
+    assert.ok(js.includes('接庄——本局不升级。'));
+    assert.ok(js.includes("t('resultTakeover'"));
+    assert.ok(js.includes('lv === 0'));
+  });
+});

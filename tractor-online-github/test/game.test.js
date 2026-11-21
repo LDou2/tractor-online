@@ -42,6 +42,151 @@ describe('deck & deal', () => {
   });
 });
 
+/* ------------------------------------------------------------------ */
+/* 1v1 mode (owner 2026-11-20): ONE 54-card set + 1 extra big joker +  */
+/* 1 extra small joker = 56 cards; 25 each + 6 bottom; scoring at      */
+/* nDecks = 1 uses the owner's own 1v1 table (UPDATED 2026-11-20,      */
+/* replacing the generic bands for n = 1 only).                        */
+/* ------------------------------------------------------------------ */
+describe('1v1 pool & deal (1 deck + extra joker pair)', () => {
+  test('buildPool1v1: 56 cards — every suit card once, 2 big + 2 small jokers, unique ids', () => {
+    const pool = G.buildPool1v1();
+    assert.equal(pool.length, 56);
+    assert.equal(new Set(pool.map((c) => c.id)).size, 56);
+    const suited = pool.filter((c) => c.suit !== null);
+    assert.equal(suited.length, 52);
+    // Every (suit, rank) exactly once — no duplicate suit cards.
+    assert.equal(new Set(suited.map((c) => `${c.suit}:${c.rank}`)).size, 52);
+    for (const s of G.SUITS) assert.equal(suited.filter((c) => c.suit === s).length, 13);
+    assert.equal(pool.filter((c) => c.rank === 'BJ').length, 2);
+    assert.equal(pool.filter((c) => c.rank === 'SJ').length, 2);
+    // A single deck holds exactly 100 points.
+    assert.equal(G.pointsOf(pool), 100);
+  });
+
+  test('deal1v1: 25 / 25 + 6 bottom = the whole 56-card pool, nDecks 1', () => {
+    for (let trial = 0; trial < 25; trial++) {
+      const { hands, bottom, nDecks } = G.deal1v1();
+      assert.equal(nDecks, 1);
+      assert.equal(hands.length, 2);
+      assert.equal(hands[0].length, 25);
+      assert.equal(hands[1].length, 25);
+      assert.equal(bottom.length, 6);
+      const all = [...hands.flat(), ...bottom];
+      assert.equal(all.length, 56);
+      assert.equal(new Set(all.map((c) => c.id)).size, 56);
+      assert.equal(all.filter((c) => c.rank === 'BJ').length, 2);
+      assert.equal(all.filter((c) => c.rank === 'SJ').length, 2);
+      assert.equal(new Set(all.filter((c) => c.suit !== null).map((c) => `${c.suit}:${c.rank}`)).size, 52);
+    }
+  });
+
+  test('deal(2) is not the 1v1 path — the team deal still rejects 2 players', () => {
+    assert.throws(() => G.deal(2));
+  });
+});
+
+/* UPDATED 2026-11-20 (owner's 1v1 scoring table): for n = 1 the      */
+/* generic band formula is replaced by the owner's table, keyed on    */
+/* T = the non-dealer side's total (trick points + 2x bottom on 抠底): */
+/*   T = 0 -> dealer +3 · 0 < T < 20 -> dealer +2 · 20 <= T < 40 ->   */
+/*   dealer +1 · 40 <= T < 80 -> defenders take the deal, NO levels   */
+/*   for either side · T >= 80 -> defenders +1 (flat).                */
+describe('scoring at n = 1 (owner 1v1 table, 2026-11-20)', () => {
+  const at = (trick, bottom = 0, wonLast = false) =>
+    G.scoreRound({ nDecks: 1, defenderTrickPoints: trick, bottomPoints: bottom, defendersWonLastTrick: wonLast });
+
+  test('dealer bands at the exact boundaries: T = 0 -> +3, 1 and 19 -> +2, 20 and 39 -> +1', () => {
+    assert.equal(at(0).winner, 'dealer');
+    assert.equal(at(0).dealerLevels, 3);
+    assert.equal(at(1).winner, 'dealer');
+    assert.equal(at(1).dealerLevels, 2);
+    assert.equal(at(19).dealerLevels, 2);
+    assert.equal(at(20).dealerLevels, 1);
+    assert.equal(at(39).dealerLevels, 1);
+    for (const t of [0, 1, 19, 20, 39]) assert.equal(at(t).defenderLevels, 0);
+    assert.equal(at(30).dealerPoints, 70); // 100 - trick, unchanged
+  });
+
+  test('takeover band 40 <= T < 80 (boundaries 40, 79): defenders win the deal with 0 levels for BOTH sides', () => {
+    for (const t of [40, 55, 79]) {
+      const r = at(t);
+      assert.equal(r.winner, 'defenders'); // counts as a non-dealer win...
+      assert.equal(r.defenderLevels, 0);   // ...but nobody gains a level
+      assert.equal(r.dealerLevels, 0);
+      // Rotation still hands the deal to the non-dealer side.
+      assert.equal(G.nextDealingTeam(0, r), 1);
+      assert.equal(G.nextDealingTeam(1, r), 0);
+      const a = G.applyLevels([3, 5], r, 0);
+      assert.deepEqual(a.levels, [3, 5]); // levels untouched
+      assert.equal(a.matchWon, null);
+    }
+  });
+
+  test('T >= 80 (boundaries 80, 100): defenders gain exactly 1 — flat, no higher bands', () => {
+    assert.equal(at(80).winner, 'defenders');
+    assert.equal(at(80).defenderLevels, 1);
+    assert.equal(at(100).defenderLevels, 1); // NOT the old generic formula's +4
+    assert.equal(at(80).dealerLevels, 0);
+    assert.equal(at(100).dealerLevels, 0);
+  });
+
+  test('the table keys on T (total incl. 抠底), not raw trick points', () => {
+    // 30 trick + 2x5 bottom on 抠底 = T 40 -> the takeover band.
+    let r = at(30, 5, true);
+    assert.equal(r.defenderTotal, 40);
+    assert.equal(r.winner, 'defenders');
+    assert.equal(r.defenderLevels, 0);
+    assert.equal(r.dealerLevels, 0);
+    // 30 trick + 2x25 bottom = T 80 -> defenders +1.
+    r = at(30, 25, true);
+    assert.equal(r.defenderTotal, 80);
+    assert.equal(r.winner, 'defenders');
+    assert.equal(r.defenderLevels, 1);
+    // 0 trick points but a 抠底 over a 10-point bottom: T = 20 -> dealer
+    // +1, NOT the +3 shutout (the shutout is keyed on T = 0, not on
+    // trick points).
+    r = at(0, 10, true);
+    assert.equal(r.defenderTotal, 20);
+    assert.equal(r.winner, 'dealer');
+    assert.equal(r.dealerLevels, 1);
+    // T = 0 even with the last trick won (empty bottom): dealer +3.
+    r = at(0, 0, true);
+    assert.equal(r.defenderTotal, 0);
+    assert.equal(r.dealerLevels, 3);
+    // Without the last trick, the bottom never counts.
+    r = at(30, 25, false);
+    assert.equal(r.defenderTotal, 30);
+    assert.equal(r.winner, 'dealer');
+    assert.equal(r.dealerLevels, 1);
+  });
+
+  test('sweep: every total matches the 1v1 table exactly (trick points x bottom x 抠底)', () => {
+    for (let trick = 0; trick <= 100; trick += 5) {
+      for (const bottom of [0, 10, 25]) {
+        for (const wonLast of [false, true]) {
+          const r = at(trick, bottom, wonLast);
+          const T = trick + (wonLast ? 2 * bottom : 0);
+          assert.equal(r.defenderTotal, T);
+          if (T < 40) {
+            assert.equal(r.winner, 'dealer');
+            assert.equal(r.dealerLevels, T === 0 ? 3 : T < 20 ? 2 : 1);
+            assert.equal(r.defenderLevels, 0);
+          } else if (T < 80) {
+            assert.equal(r.winner, 'defenders');
+            assert.equal(r.defenderLevels, 0);
+            assert.equal(r.dealerLevels, 0);
+          } else {
+            assert.equal(r.winner, 'defenders');
+            assert.equal(r.defenderLevels, 1);
+            assert.equal(r.dealerLevels, 0);
+          }
+        }
+      }
+    }
+  });
+});
+
 describe('trump helpers', () => {
   test('effectiveSuit: level cards and trump-suit cards are trump', () => {
     assert.equal(G.effectiveSuit(C('H', 7), LEVEL, TRUMP), 'T');
