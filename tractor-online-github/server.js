@@ -48,7 +48,7 @@ const G = require('./game');
 const PORT = process.env.PORT || 3000;
 // Deal dispatch speeds: ms per card, dealt one at a time sequentially
 // around the table. Instant (0) deals the whole hand at once, as before.
-const DEAL_SPEEDS = { instant: 0, fast: 40, normal: 90, slow: 180 };
+const DEAL_SPEEDS = { instant: 0, fast: 257, normal: 450, slow: 1200 };
 const DEAL_SPEED_NAMES = { instant: 'Instant', fast: 'Fast', normal: 'Normal', slow: 'Slow' };
 const normalizeDealSpeed = (s) =>
   (Object.prototype.hasOwnProperty.call(DEAL_SPEEDS, s) ? s : 'fast');
@@ -967,4 +967,4 @@ if (require.main === module) {
 
 // Exported for the server-flow tests (test/server.test.js); running
 // `node server.js` (npm start) is unaffected.
-module.exports = { server, io, rooms, newRoom, doPlay, doBid, passBid, doBury, dealTick, startRound, computeNextDealerSeat };
+module.exports = { server, io, rooms, newRoom, doPlay, doBid, passBid, doBury, dealTick, startRound, computeNextDealerSeat, DEAL_SPEEDS };

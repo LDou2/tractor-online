@@ -228,6 +228,12 @@ describe('server: dispatch dealing + live bidding', () => {
     assert.equal(S.newRoom('TSPD4', 'A', null, 4, 'warp').dealSpeed, 'fast');
   });
 
+  test('deal speed delays: fast 257 / normal 450 / slow 1200 ms per card, instant 0', () => {
+    // Redefined 2026-11-20 as fractions of the old Slow pace (180 ms/card):
+    // Fast = 180/0.70 ≈ 257, Normal = 180/0.40 = 450, Slow = 180/0.15 = 1200.
+    assert.deepEqual(S.DEAL_SPEEDS, { instant: 0, fast: 257, normal: 450, slow: 1200 });
+  });
+
   test('instant speed deals at once into the bidding phase (previous behavior)', () => {
     const room = makeFullRoom('instant');
     S.startRound(room);
