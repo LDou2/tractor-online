@@ -614,3 +614,106 @@ describe('server: ZhuangJia rotation', () => {
     assert.ok(!html.includes('flipped until a level card appears'));
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* Round-end summary + manual advance (owner's live-test notes,      */
+/* 2026-11-20): (1) the summary once showed a dealer-team win as      */
+/* "升0级" — the client re-derived the winner's gain by comparing     */
+/* teams against a `game` state that no longer exists at roundOver,   */
+/* so it always displayed the defenders' number (0 on a dealer win).  */
+/* The server now sends winnerLevels, picked from the same result     */
+/* that drives applyLevels and the rotation. (2) The result screen    */
+/* no longer auto-advances: it stays until any player presses         */
+/* "Next Round".                                                      */
+/* ------------------------------------------------------------------ */
+
+describe('server: round-end summary & manual advance', () => {
+  test('dealer-team shutout win: lastResult.winnerLevels is 3, levels and rotation agree', () => {
+    const room = makeRoom(); // dealer seat 0 (Gold), levels [2, 2]
+    playOutLastTrick(room, { dealerSeat: 0, defenderPoints: 0 });
+    settleAll(room);
+    assert.equal(room.phase, 'roundOver');
+    const r = room.lastResult;
+    assert.equal(r.winnerTeam, 0);
+    assert.equal(r.dealerLevels, 3);
+    assert.equal(r.defenderLevels, 0);
+    assert.equal(r.winnerLevels, 3); // never the loser's 0 — this was the "升0级" bug
+    assert.deepEqual(room.levels, [5, 2]); // the gain was really applied
+    assert.equal(room.nextDealerSeat, S.computeNextDealerSeat(0, true, 4)); // rotation used the same win
+  });
+
+  test('dealer-team normal win: winnerLevels is 1 (not 0)', () => {
+    const room = makeRoom();
+    playOutLastTrick(room, { dealerSeat: 0, defenderPoints: 70 }); // 70 < 80 line, >= 40: dealer +1
+    settleAll(room);
+    assert.equal(room.phase, 'roundOver');
+    assert.equal(room.lastResult.winnerTeam, 0);
+    assert.equal(room.lastResult.dealerLevels, 1);
+    assert.equal(room.lastResult.winnerLevels, 1);
+    assert.deepEqual(room.levels, [3, 2]);
+  });
+
+  test('defender win: winnerLevels is the defenders\u2019 gain', () => {
+    const room = makeRoom();
+    playOutLastTrick(room, { dealerSeat: 0, defenderPoints: 80 }); // exactly the 2x40 line
+    settleAll(room);
+    assert.equal(room.phase, 'roundOver');
+    assert.equal(room.lastResult.winnerTeam, 1);
+    assert.equal(room.lastResult.defenderLevels, 1);
+    assert.equal(room.lastResult.winnerLevels, 1);
+    assert.deepEqual(room.levels, [2, 3]);
+    assert.equal(room.nextDealerSeat, S.computeNextDealerSeat(0, false, 4));
+  });
+
+  test('round over: no auto-advance — simulated time far past the old 15 s leaves the room on the result screen', () => {
+    const { mock } = require('node:test');
+    mock.timers.enable({ apis: ['setTimeout'] });
+    try {
+      const room = makeRoom();
+      playOutLastTrick(room, { dealerSeat: 0, defenderPoints: 0 });
+      assert.equal(room.phase, 'roundOver');
+      // Nothing is armed any more: no auto-next timestamp, no timer.
+      assert.equal(room.autoNextAt, undefined);
+      assert.equal(room.autoTimer, undefined);
+      assert.equal(room.timer, null); // endRound cleared the turn timer
+      mock.timers.tick(20 * 60 * 1000); // 20 simulated minutes >> the old 15 s pause
+      assert.equal(room.phase, 'roundOver'); // still on the summary page
+      assert.equal(room.roundNo, 1); // no new round was dealt
+      assert.ok(room.lastResult);
+    } finally {
+      mock.timers.reset();
+    }
+  });
+
+  test('round over: a Next Round press from a non-dealer seat starts the next round', () => {
+    const room = makeRoom();
+    playOutLastTrick(room, { dealerSeat: 0, defenderPoints: 0 }); // dealer is seat 0
+    settleAll(room);
+    assert.equal(room.phase, 'roundOver');
+    assert.equal(room.roundNo, 1); // the room waits on the summary page
+    // The 'startRound' socket handler accepts the press from ANY player
+    // in the room — its only gates are the phase and a full table; it
+    // never checks which seat sent it. A press from seat 3 (not the
+    // dealer, not the room creator) therefore runs startRound(room):
+    room.dealSpeed = 'instant';
+    S.startRound(room);
+    settleAll(room);
+    assert.equal(room.roundNo, 2);
+    assert.equal(room.phase, 'bidding');
+  });
+
+  test('client: no countdown/auto-start text remains in either language; Next Round labels intact', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const js = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
+    assert.ok(!js.includes('autoNextNote'));
+    assert.ok(!js.includes('auto-count'));
+    assert.ok(!js.includes('autoNextAt'));
+    assert.ok(!js.includes('starts automatically'));
+    assert.ok(!js.includes('自动开始'));
+    assert.ok(js.includes("nextRound: 'Next Round'"));
+    assert.ok(js.includes("nextRound: '下一局'"));
+    // The summary line reads the server-sent winnerLevels.
+    assert.ok(js.includes('r.winnerLevels'));
+  });
+});

@@ -103,7 +103,6 @@ const I18N = {
     jackReset: '🂡 Defender 抠底 with only Jacks — dealer team reset to level 2.',
     buriedBottom: 'Buried bottom: ',
     nextRound: 'Next Round',
-    autoNextNote: 'Next round starts automatically in <b id="auto-count">…</b>s — the button starts it right away.',
     newMatch: 'New Match',
   },
   zh: {
@@ -192,7 +191,6 @@ const I18N = {
     jackReset: '🂡 防守方抠底牌全是 J——庄家队打回 2 级。',
     buriedBottom: '所扣底牌：',
     nextRound: '下一局',
-    autoNextNote: '下一局将在 <b id="auto-count">…</b> 秒后自动开始——点按钮立即开始。',
     newMatch: '新对局',
   },
 };
@@ -561,7 +559,9 @@ function renderResult() {
   const show = (state.phase === 'roundOver' || state.phase === 'matchOver') && r;
   p.classList.toggle('hidden', !show);
   if (!show) return;
-  const lv = r.winnerTeam === (state.game ? state.game.dealerTeam : -1) ? r.dealerLevels : r.defenderLevels;
+  // The server sends the winning side's level gain directly — at
+  // roundOver there is no live `game` state to compare teams against.
+  const lv = r.winnerLevels;
   p.innerHTML =
     `<h3>${t('resultTitle', { n: r.roundNo })}</h3>` +
     `<p>${t('resultWins', { team: teamLabel(r.winnerName), n: lv, s: lv > 1 ? 's' : '' })}</p>` +
@@ -571,22 +571,13 @@ function renderResult() {
     `<span style="color:#8ecbff">${t('teamBlue')} ${r.levels[1]}</span></p>` +
     (r.jackReset ? `<p>${t('jackReset')}</p>` : '') +
     `<p class="hint">${t('buriedBottom')}${r.buried.map(miniHTML).join(' ')}</p>` +
-    (state.phase === 'roundOver' ? `<button id="btn-next" class="primary">${t('nextRound')}</button>` +
-      (state.autoNextAt ? `<p class="hint">${t('autoNextNote')}</p>` : '') : '') +
+    (state.phase === 'roundOver' ? `<button id="btn-next" class="primary">${t('nextRound')}</button>` : '') +
     (state.phase === 'matchOver' ? `<button id="btn-newmatch" class="primary">${t('newMatch')}</button>` : '');
   const nb = $('btn-next');
   if (nb) nb.onclick = () => socket.emit('startRound');
   const nm = $('btn-newmatch');
   if (nm) nm.onclick = () => socket.emit('startRound');
 }
-
-// Tick the auto-next-round countdown on the result screen.
-setInterval(() => {
-  const el = $('auto-count');
-  if (el && state && state.autoNextAt) {
-    el.textContent = Math.max(0, Math.ceil((state.autoNextAt - Date.now()) / 1000));
-  }
-}, 500);
 
 function renderLog() {
   $('log').innerHTML = state.log.map((e) => esc(e.msg)).join('<br>');

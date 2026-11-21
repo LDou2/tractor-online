@@ -53,7 +53,6 @@ const DEAL_SPEED_NAMES = { instant: 'Instant', fast: 'Fast', normal: 'Normal', s
 const normalizeDealSpeed = (s) =>
   (Object.prototype.hasOwnProperty.call(DEAL_SPEEDS, s) ? s : 'fast');
 const TURN_MS = 120000; // human action timer
-const AUTO_NEXT_MS = 15000; // pause on the result screen, then the next round is dealt automatically
 const AWAY_MS = 15000;  // timer for a disconnected seat's turn
 const MAX_CHAT_LEN = 200;
 
@@ -127,7 +126,6 @@ function publicState(room) {
     levels: room.levels.slice(),
     roundNo: room.roundNo,
     matchWinner: room.matchWinner,
-    autoNextAt: room.autoNextAt || null,
     seats: room.seats.map((s, i) => ({
       seat: i, name: s.name, team: G.TEAM_OF_SEAT(i), teamName: teamName(i),
       connected: s.connected,
@@ -236,9 +234,7 @@ function computeNextDealerSeat(dealerSeat, dealerTeamWon, tableSize) {
 }
 
 function startRound(room) {
-  clearTimeout(room.autoTimer);
   clearDealTimer(room);
-  room.autoNextAt = null;
   room.roundNo += 1;
   // The previous round's winning team deals: a winning dealer team stays
   // the ZhuangJia team; defenders become it only by winning (n*40+).
@@ -763,6 +759,13 @@ function endRound(room) {
   room.lastResult = {
     winnerTeam: room.lastWinnerTeam,
     winnerName: room.lastWinnerTeam === 0 ? 'Gold' : 'Blue',
+    // The winning side's level gain, picked here from the same result
+    // that drives applyLevels and the ZhuangJia rotation — the summary
+    // screen must never re-derive it (it has no dealer team to compare
+    // against at roundOver, which once made a dealer-team win display
+    // the defenders' 0 as "升0级").
+    winnerLevels: result.winner === 'defenders' ? result.defenderLevels : result.dealerLevels,
+    dealerTeam,
     defenderTotal: result.defenderTotal,
     dealerPoints: result.dealerPoints,
     defenderLevels: result.defenderLevels,
@@ -788,19 +791,10 @@ function endRound(room) {
       (jackReset ? ' — dealer reset to level 2 (Jacks 抠底)' : '') +
       `. Levels now Gold ${room.levels[0]} / Blue ${room.levels[1]}.`);
   }
+  // The result screen stays up until a player presses "Next Round"
+  // (owner's call, 2026-11-20) — no countdown, no auto-deal. The
+  // 'startRound' socket handler is the only way forward from here.
   sendState(room);
-  if (room.phase === 'roundOver') {
-    // Auto-advance: after a short pause on the result screen, deal the next
-    // round by itself (dealing team + level already advanced above, and the
-    // next 庄家 seat already rotated — the new bid only decides trump).
-    // Anyone may press "Next Round" to skip the wait.
-    room.autoNextAt = Date.now() + AUTO_NEXT_MS;
-    clearTimeout(room.autoTimer);
-    room.autoTimer = setTimeout(() => {
-      if (room.phase === 'roundOver') startRound(room);
-    }, AUTO_NEXT_MS);
-    sendState(room);
-  }
 }
 
 // --- socket wiring ------------------------------------------------------------------
@@ -954,7 +948,7 @@ io.on('connection', (socket) => {
 const pruneTimer = setInterval(() => {
   for (const [code, room] of rooms) {
     const anyone = room.seats.some((s) => s.name && s.connected);
-    if (!anyone) { clearTimer(room); clearDealTimer(room); clearTimeout(room.autoTimer); rooms.delete(code); }
+    if (!anyone) { clearTimer(room); clearDealTimer(room); rooms.delete(code); }
   }
 }, 10 * 60 * 1000);
 pruneTimer.unref();

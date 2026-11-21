@@ -1201,6 +1201,39 @@ describe('scoring & levels (n = decks)', () => {
     assert.equal(r4.winner, 'dealer'); // 110 < 160
     assert.equal(G.nextDealingTeam(0, r4), 0);
   });
+  test('sweep: in every band the winner gains >= 1 level and the loser 0 (2 and 3 decks, with/without 抠底)', () => {
+    // Owner's rule (2026-11-20): a round win is always worth at least
+    // 升1级 — a "升0级" summary is impossible. Sweep every defender
+    // point total (card points move in 5s) across the whole range,
+    // with bottom captures up to a full 60-point bottom.
+    for (const n of [2, 3]) {
+      for (let trick = 0; trick <= n * 100; trick += 5) {
+        for (const bottomPoints of [0, 10, 20, 30, 40, 50, 60]) {
+          for (const defendersWonLastTrick of [false, true]) {
+            const r = G.scoreRound({ nDecks: n, defenderTrickPoints: trick, bottomPoints, defendersWonLastTrick });
+            const total = trick + (defendersWonLastTrick ? 2 * bottomPoints : 0);
+            assert.equal(r.winner, total >= n * 40 ? 'defenders' : 'dealer',
+              `n=${n} trick=${trick} bottom=${bottomPoints} wonLast=${defendersWonLastTrick}`);
+            const win = r.winner === 'defenders' ? r.defenderLevels : r.dealerLevels;
+            const lose = r.winner === 'defenders' ? r.dealerLevels : r.defenderLevels;
+            assert.ok(win >= 1, `winner levels ${win} < 1 (n=${n} trick=${trick} bottom=${bottomPoints} wonLast=${defendersWonLastTrick})`);
+            assert.equal(lose, 0);
+          }
+        }
+      }
+    }
+  });
+  test('runaway wins reach +3 (owner: 升3级 is normal for a big margin or a big 抠底)', () => {
+    // Defenders far past the line: 1 + floor((total - n*40) / (n*20)).
+    assert.equal(G.scoreRound({ nDecks: 2, defenderTrickPoints: 160, bottomPoints: 0, defendersWonLastTrick: false }).defenderLevels, 3);
+    assert.equal(G.scoreRound({ nDecks: 3, defenderTrickPoints: 240, bottomPoints: 0, defendersWonLastTrick: false }).defenderLevels, 3);
+    // A big 抠底 gets there too: 100 trick points + 2x a 30-point bottom = 160.
+    const k = G.scoreRound({ nDecks: 2, defenderTrickPoints: 100, bottomPoints: 30, defendersWonLastTrick: true });
+    assert.equal(k.winner, 'defenders');
+    assert.equal(k.defenderLevels, 3);
+    // Dealer shutout is +3 as well.
+    assert.equal(G.scoreRound({ nDecks: 3, defenderTrickPoints: 0, bottomPoints: 40, defendersWonLastTrick: false }).dealerLevels, 3);
+  });
 });
 
 // Throw rule (甩牌, owner 2026-11-19): a lead of 2+ units of ONE type
