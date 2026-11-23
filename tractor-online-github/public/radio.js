@@ -8,7 +8,8 @@
  *
  * Attributes: floating, corner (top-left|top-right|bottom-left|bottom-right),
  *             mini, scale (number), finish (ivory|graphite|sage|cherry)
- * Floating:   drag the handle, speaker or mini bar and let go anywhere — it stays there (remembered).
+ * Floating:   starts as the mini bar, 1.5 inch below the top on the right (until the user changes it).
+ *             Drag the handle, speaker or mini bar and let go anywhere — it stays there (remembered).
  *             On phones/tablets it shrinks to fit the screen; the ⤡ button toggles the mini bar.
  * Events:     "radio-change" (detail: {power, band, freq, station, track})
  */
@@ -672,6 +673,12 @@
           this._fpos = f.pos; this._selfCorner = true; this.setAttribute('corner', `${f.pos.v}-${f.pos.h}`); this._selfCorner = false;
         }
         if (f && typeof f.mini === 'boolean') this.toggleAttribute('mini', f.mini);
+        // until the user moves it: about 1.5 inch (144px) below the top, on the right
+        if (!this._fpos) {
+          this._fpos = { h: 'right', x: 16, v: 'top', y: 144 };
+          this._selfCorner = true; this.setAttribute('corner', 'top-right'); this._selfCorner = false;
+        }
+        if (!f) this.setAttribute('mini', ''); // first visit: start as the mini bar
       }
       this._layoutFloat();
       this.streamEl = new Audio(); this.streamEl.preload = 'none';
