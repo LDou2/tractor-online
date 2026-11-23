@@ -8,6 +8,8 @@
  *
  * Attributes: floating, corner (top-left|top-right|bottom-left|bottom-right),
  *             mini, scale (number), finish (ivory|graphite|sage|cherry)
+ * Floating:   drag the handle, speaker or mini bar and let go anywhere — it stays there (remembered).
+ *             On phones/tablets it shrinks to fit the screen; the ⤡ button toggles the mini bar.
  * Events:     "radio-change" (detail: {power, band, freq, station, track})
  */
 (() => {
@@ -19,6 +21,8 @@
   const API_HOSTS = ['https://de1.api.radio-browser.info', 'https://fi1.api.radio-browser.info', 'https://de2.api.radio-browser.info'];
   const LS_KEY = 'retro-radio:v1';
   const POS_KEY = 'retro-radio:pos';
+  const FLOAT_KEY = 'retro-radio:float';
+  const TOUCH = () => matchMedia('(any-pointer:coarse)').matches;
   const AUDIO_EXT = /\.(mp3|m4a|aac|ogg|oga|opus|wav|flac|webm)$/i;
   const MIME = { mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg', oga: 'audio/ogg', opus: 'audio/ogg', wav: 'audio/wav', flac: 'audio/flac', webm: 'audio/webm' };
 
@@ -261,20 +265,32 @@
   .radio{position:relative;width:520px;user-select:none;-webkit-user-select:none}
   .full{display:flex;flex-direction:column}
   :host([mini]) .full{display:none}
+  :host([mini]) .radio{width:auto}
   .mini-bar{display:none}
   :host([mini]) .mini-bar{display:flex}
 
   /* handle */
   .handle{position:relative;height:44px;margin:0 86px -8px;z-index:0}
-  :host([floating]) .handle,:host([floating]) .mini-bar{cursor:grab}
+  :host([floating]) .handle,:host([floating]) .mini-bar,:host([floating]) .speaker{cursor:grab;touch-action:none}
+  :host([floating]) .handle::before{content:'';position:absolute;inset:-16px -24px 0}
+  @media (any-pointer:coarse){
+    :host([floating]) .handle{height:58px}
+    :host([floating]) .strap{height:66px;border-width:18px}
+    :host([floating]) .handle::before{inset:-26px -40px 0}
+    :host([floating]) .minbtn{right:-84px;top:2px;width:56px;height:56px;background:var(--ink);color:var(--body);box-shadow:0 2px 6px rgba(0,0,0,.4)}
+    :host([floating]) .minbtn svg{width:24px;height:24px}
+    :host([floating]) .mb{width:42px;height:42px}
+    :host([floating]) .mb svg{width:18px;height:18px}
+    :host([floating]) .mini-bar{width:380px;height:72px}
+  }
   .strap{position:absolute;left:12px;right:12px;top:2px;height:52px;border:11px solid #3b2a1f;border-bottom:0;border-radius:26px 26px 0 0;
     box-shadow:inset 0 2px 0 rgba(255,255,255,.07),0 -1px 0 rgba(0,0,0,.35),0 6px 10px -4px rgba(0,0,0,.3)}
   .strap::after{content:'';position:absolute;inset:-6px -6px 0;border:1.5px dashed rgba(236,205,160,.45);border-bottom:0;border-radius:21px 21px 0 0}
   .lug{position:absolute;bottom:0;width:34px;height:22px;border-radius:7px 7px 2px 2px;background:linear-gradient(90deg,#8e8e8e,#f4f4f4 42%,#c9c9c9 62%,#9a9a9a);box-shadow:0 1px 2px rgba(0,0,0,.45),inset 0 1px 0 #fff}
   .lug.l{left:0}.lug.r{right:0}
-  .minbtn{position:absolute;right:-74px;top:14px;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:var(--label);
+  .minbtn{position:absolute;right:-76px;top:10px;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:var(--label);
     background:rgba(0,0,0,.06);box-shadow:inset 0 1px 2px rgba(0,0,0,.25)}
-  .minbtn svg{width:12px;height:12px}
+  .minbtn svg{width:14px;height:14px}
   .minbtn:hover{color:var(--ink)}
 
   /* chassis */
@@ -567,9 +583,64 @@
     }
 
     attributeChangedCallback(name, _o, v) {
-      if (name === 'scale') { this.style.setProperty('--rr-zoom', parseFloat(v) || 1); this._applyMove(); }
+      if (name === 'scale') { this._applyZoom(); this._applyMove(); }
       if (name === 'finish') this.$$('.sw').forEach((b) => b.classList.toggle('on', b.dataset.finish === (v || 'ivory')));
       if (name === 'mini' && this.isConnected) this.renderAll();
+      if (!this._init) return;
+      // A corner chosen from outside (e.g. a "Float ↘" button) replaces the free position.
+      if (name === 'corner' && !this._selfCorner) { this._fpos = null; this._saveFloat(); }
+      if (name === 'mini' && this.hasAttribute('floating')) this._saveFloat();
+      if (name === 'mini' || name === 'floating' || name === 'corner') this._layoutFloat();
+    }
+
+    /* ---------- floating: size + free position ---------- */
+    _zoom() {
+      const base = parseFloat(this.getAttribute('scale')) || 1;
+      if (!this.hasAttribute('floating')) return base;
+      const vw = document.documentElement.clientWidth || innerWidth, vh = innerHeight;
+      if (this.hasAttribute('mini')) {
+        // the pill keeps finger-sized buttons, but never wider than the screen
+        return TOUCH() ? Math.min(0.9, (vw - 16) / 380) : Math.min(base, (vw - 16) / 360);
+      }
+      // full radio: about 520 x 480 at zoom 1
+      return TOUCH() ? Math.min(base, 0.6, vw * 0.62 / 520, vh * 0.48 / 500)
+        : Math.min(base, (vw - 16) / 520, (vh - 16) / 500);
+    }
+    _applyZoom() { this.style.setProperty('--rr-zoom', Math.round(this._zoom() * 1000) / 1000); }
+    _saveFloat() { lsSet(FLOAT_KEY, { pos: this._fpos || null, mini: this.hasAttribute('mini') }); }
+    // Put the radio at this._fpos ({h:'left'|'right', x, v:'top'|'bottom', y} in screen px),
+    // anchored to the nearest edges so it grows away from them (e.g. the song list opens upwards).
+    _layoutFloat() {
+      ['left', 'right', 'top', 'bottom'].forEach((p) => this.style.removeProperty(p));
+      this._applyZoom();
+      if (!this.hasAttribute('floating') || !this._fpos) return;
+      const z = parseFloat(getComputedStyle(this).zoom) || 1;
+      const vw = document.documentElement.clientWidth || innerWidth, vh = innerHeight;
+      const place = (p) => {
+        Object.assign(this.style, { left: 'auto', right: 'auto', top: 'auto', bottom: 'auto' });
+        this.style[p.h] = `${p.x / z}px`; this.style[p.v] = `${p.y / z}px`;
+      };
+      const r0 = this.getBoundingClientRect();
+      const p = { ...this._fpos };
+      p.x = Math.max(0, Math.min(p.x, vw - r0.width)); p.y = Math.max(0, Math.min(p.y, vh - r0.height));
+      place(p);
+      // browsers differ in how zoom affects offsets: measure once and correct
+      const r = this.getBoundingClientRect();
+      const gotX = p.h === 'left' ? r.left : vw - r.right, gotY = p.v === 'top' ? r.top : vh - r.bottom;
+      if ((Math.abs(gotX - p.x) > 1 && gotX > 0) || (Math.abs(gotY - p.y) > 1 && gotY > 0)) {
+        const kx = gotX > 0 ? p.x / gotX : 1, ky = gotY > 0 ? p.y / gotY : 1;
+        this.style[p.h] = `${(p.x / z) * kx}px`; this.style[p.v] = `${(p.y / z) * ky}px`;
+      }
+    }
+    _dropFloat() {
+      const r = this.getBoundingClientRect();
+      const vw = document.documentElement.clientWidth || innerWidth, vh = innerHeight;
+      const h = r.left + r.width / 2 < vw / 2 ? 'left' : 'right', v = r.top + r.height / 2 < vh / 2 ? 'top' : 'bottom';
+      this._fpos = { h, v, x: Math.round(Math.max(0, h === 'left' ? r.left : vw - r.right)), y: Math.round(Math.max(0, v === 'top' ? r.top : vh - r.bottom)) };
+      const corner = `${v}-${h}`;
+      this._selfCorner = true; this.setAttribute('corner', corner); this._selfCorner = false;
+      this._layoutFloat(); this._saveFloat();
+      this.dispatchEvent(new CustomEvent('radio-corner', { bubbles: true, composed: true, detail: { corner, position: { ...this._fpos } } }));
     }
 
     // "movable" (not floating): drag the handle to place the radio anywhere; position is remembered.
@@ -600,10 +671,17 @@
       if (!this._pos) { const p = lsGet(POS_KEY); this._pos = p && isFinite(p.x) && isFinite(p.y) ? p : { x: 0, y: 0 }; this._applyMove(); }
       requestAnimationFrame(() => requestAnimationFrame(() => this._keepInReach()));
       if (this._init) return; this._init = true;
-      addEventListener('resize', () => { clearTimeout(this._reachT); this._reachT = setTimeout(() => this._keepInReach(), 120); });
+      addEventListener('resize', () => { clearTimeout(this._reachT); this._reachT = setTimeout(() => { this._keepInReach(); this._layoutFloat(); }, 120); });
       ensureFont();
       if (!this.hasAttribute('finish')) this.setAttribute('finish', this.s.finish);
-      if (this.hasAttribute('scale')) this.style.setProperty('--rr-zoom', parseFloat(this.getAttribute('scale')) || 1);
+      if (this.hasAttribute('floating')) {
+        const f = lsGet(FLOAT_KEY);
+        if (f && f.pos && isFinite(f.pos.x) && isFinite(f.pos.y)) {
+          this._fpos = f.pos; this._selfCorner = true; this.setAttribute('corner', `${f.pos.v}-${f.pos.h}`); this._selfCorner = false;
+        }
+        if (f && typeof f.mini === 'boolean') this.toggleAttribute('mini', f.mini);
+      }
+      this._layoutFloat();
       this.streamEl = new Audio(); this.streamEl.preload = 'none';
       this.mp3El = new Audio(); this.mp3El.preload = 'metadata';
       this.bindAudio();
@@ -1133,21 +1211,18 @@
           return;
         }
         e.preventDefault();
-        const r = this.getBoundingClientRect(); const ox = e.clientX - r.left, oy = e.clientY - r.top;
-        const z = parseFloat(getComputedStyle(this).zoom) || 1;
+        // drag freely; when released it stays exactly there (kept fully on screen)
+        const r = this.getBoundingClientRect(), sx = e.clientX, sy = e.clientY;
+        const vw = document.documentElement.clientWidth || innerWidth, vh = innerHeight;
+        this._fpos = { h: 'left', v: 'top', x: r.left, y: r.top };
         track(e, (ev) => {
-          Object.assign(this.style, { left: `${(ev.clientX - ox) / z}px`, top: `${(ev.clientY - oy) / z}px`, right: 'auto', bottom: 'auto' });
-        }, () => {
-          const rr = this.getBoundingClientRect(); const cx = rr.left + rr.width / 2, cy = rr.top + rr.height / 2;
-          const corner = `${cy < innerHeight / 2 ? 'top' : 'bottom'}-${cx < innerWidth / 2 ? 'left' : 'right'}`;
-          ['left', 'top', 'right', 'bottom'].forEach((p) => this.style.removeProperty(p));
-          this.setAttribute('corner', corner);
-          this.dispatchEvent(new CustomEvent('radio-corner', { bubbles: true, composed: true, detail: { corner } }));
-        });
+          const x = Math.max(0, Math.min(vw - r.width, r.left + ev.clientX - sx)), y = Math.max(0, Math.min(vh - r.height, r.top + ev.clientY - sy));
+          this._fpos = { h: 'left', v: 'top', x, y }; this._layoutFloat();
+        }, () => this._dropFloat());
       };
       this.$('.handle').addEventListener('pointerdown', startDrag);
       this.$('.mini-bar').addEventListener('pointerdown', startDrag);
-      this.$('.speaker').addEventListener('pointerdown', (e) => { if (!this.hasAttribute('floating')) startDrag(e); });
+      this.$('.speaker').addEventListener('pointerdown', startDrag);
 
       // keyboard shortcuts when the radio has focus
       this.addEventListener('keydown', (e) => {
