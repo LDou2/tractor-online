@@ -245,7 +245,7 @@
   const NOISE_TEX = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .22 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
   const CSS = `
-  :host{all:initial;display:inline-block;zoom:var(--rr-zoom,1);font-family:Inter,system-ui,-apple-system,sans-serif;color-scheme:light;
+  :host{all:initial;display:inline-block;font-family:Inter,system-ui,-apple-system,sans-serif;color-scheme:light;
     --body:#ece3cf;--body2:#d6c9ad;--edge:#b5a685;--ink:#463b2c;--label:#6e5f48;
     --vfd:#86f7df;--vfd-dim:rgba(134,247,223,.08);--amber:#ffab4c;-webkit-tap-highlight-color:transparent}
   :host([finish=graphite]){--body:#4a4d53;--body2:#2e3034;--edge:#1c1d20;--ink:#ece6da;--label:#b8b1a3}
@@ -262,7 +262,8 @@
   button{font:inherit;color:inherit;cursor:pointer;border:0;padding:0;background:none;-webkit-tap-highlight-color:transparent}
   button:focus-visible,.knob:focus-visible,canvas:focus-visible{outline:2px solid var(--amber);outline-offset:3px}
   svg{display:block}
-  .radio{position:relative;width:520px;user-select:none;-webkit-user-select:none}
+  /* size via zoom on the inner box: the outer element keeps plain screen pixels in every browser (Safari included) */
+  .radio{position:relative;width:520px;zoom:var(--rr-zoom,1);user-select:none;-webkit-user-select:none}
   .full{display:flex;flex-direction:column}
   :host([mini]) .full{display:none}
   :host([mini]) .radio{width:auto}
@@ -273,11 +274,14 @@
   .handle{position:relative;height:44px;margin:0 86px -8px;z-index:0}
   :host([floating]) .handle,:host([floating]) .mini-bar,:host([floating]) .speaker{cursor:grab;touch-action:none}
   :host([floating]) .handle::before{content:'';position:absolute;inset:-16px -24px 0}
+  /* floating over another app: a bright button that stands out on any background */
+  :host([floating]) .minbtn{background:var(--amber);color:#2a1d10;box-shadow:0 0 0 2px #fff,0 2px 6px rgba(0,0,0,.45)}
+  :host([floating]) .minbtn:hover{color:#000;background:#ffc06e}
   @media (any-pointer:coarse){
     :host([floating]) .handle{height:58px}
     :host([floating]) .strap{height:66px;border-width:18px}
     :host([floating]) .handle::before{inset:-26px -40px 0}
-    :host([floating]) .minbtn{right:-84px;top:2px;width:56px;height:56px;background:var(--ink);color:var(--body);box-shadow:0 2px 6px rgba(0,0,0,.4)}
+    :host([floating]) .minbtn{right:-84px;top:2px;width:56px;height:56px}
     :host([floating]) .minbtn svg{width:24px;height:24px}
     :host([floating]) .mb{width:42px;height:42px}
     :host([floating]) .mb svg{width:18px;height:18px}
@@ -288,7 +292,7 @@
   .strap::after{content:'';position:absolute;inset:-6px -6px 0;border:1.5px dashed rgba(236,205,160,.45);border-bottom:0;border-radius:21px 21px 0 0}
   .lug{position:absolute;bottom:0;width:34px;height:22px;border-radius:7px 7px 2px 2px;background:linear-gradient(90deg,#8e8e8e,#f4f4f4 42%,#c9c9c9 62%,#9a9a9a);box-shadow:0 1px 2px rgba(0,0,0,.45),inset 0 1px 0 #fff}
   .lug.l{left:0}.lug.r{right:0}
-  .minbtn{position:absolute;right:-76px;top:10px;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:var(--label);
+  .minbtn{position:absolute;right:-78px;top:6px;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:var(--label);
     background:rgba(0,0,0,.06);box-shadow:inset 0 1px 2px rgba(0,0,0,.25)}
   .minbtn svg{width:14px;height:14px}
   .minbtn:hover{color:var(--ink)}
@@ -614,23 +618,11 @@
       ['left', 'right', 'top', 'bottom'].forEach((p) => this.style.removeProperty(p));
       this._applyZoom();
       if (!this.hasAttribute('floating') || !this._fpos) return;
-      const z = parseFloat(getComputedStyle(this).zoom) || 1;
       const vw = document.documentElement.clientWidth || innerWidth, vh = innerHeight;
-      const place = (p) => {
-        Object.assign(this.style, { left: 'auto', right: 'auto', top: 'auto', bottom: 'auto' });
-        this.style[p.h] = `${p.x / z}px`; this.style[p.v] = `${p.y / z}px`;
-      };
-      const r0 = this.getBoundingClientRect();
-      const p = { ...this._fpos };
-      p.x = Math.max(0, Math.min(p.x, vw - r0.width)); p.y = Math.max(0, Math.min(p.y, vh - r0.height));
-      place(p);
-      // browsers differ in how zoom affects offsets: measure once and correct
-      const r = this.getBoundingClientRect();
-      const gotX = p.h === 'left' ? r.left : vw - r.right, gotY = p.v === 'top' ? r.top : vh - r.bottom;
-      if ((Math.abs(gotX - p.x) > 1 && gotX > 0) || (Math.abs(gotY - p.y) > 1 && gotY > 0)) {
-        const kx = gotX > 0 ? p.x / gotX : 1, ky = gotY > 0 ? p.y / gotY : 1;
-        this.style[p.h] = `${(p.x / z) * kx}px`; this.style[p.v] = `${(p.y / z) * ky}px`;
-      }
+      const r = this.getBoundingClientRect(), p = this._fpos;
+      Object.assign(this.style, { left: 'auto', right: 'auto', top: 'auto', bottom: 'auto' });
+      this.style[p.h] = `${Math.max(0, Math.min(p.x, vw - r.width))}px`;
+      this.style[p.v] = `${Math.max(0, Math.min(p.y, vh - r.height))}px`;
     }
     _dropFloat() {
       const r = this.getBoundingClientRect();
@@ -645,8 +637,8 @@
 
     // "movable" (not floating): drag the handle to place the radio anywhere; position is remembered.
     _applyMove() {
-      const z = parseFloat(this.getAttribute('scale')) || 1, p = this._pos || { x: 0, y: 0 };
-      this.style.setProperty('--rr-mx', `${p.x / z}px`); this.style.setProperty('--rr-my', `${p.y / z}px`);
+      const p = this._pos || { x: 0, y: 0 };
+      this.style.setProperty('--rr-mx', `${p.x}px`); this.style.setProperty('--rr-my', `${p.y}px`);
     }
     // Keep the handle reachable: not above "safe-top" (e.g. a page header), not off the sides/bottom.
     _clamp(p, r = this.getBoundingClientRect(), cur = this._pos || { x: 0, y: 0 }) {
