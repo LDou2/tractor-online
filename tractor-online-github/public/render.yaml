@@ -1,0 +1,11 @@
+# Render "Blueprint": publishes this folder as a free static website.
+services:
+  - type: web
+    name: panda-radio
+    runtime: static
+    buildCommand: ""
+    staticPublishPath: .
+    headers:
+      - path: /songs/*
+        name: Cache-Control
+        value: public, max-age=604800

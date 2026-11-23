@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice"><defs>
+<filter id="pale" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".0016 .0022" numOctaves="5" seed="11" result="n0"/>
+    <feTurbulence type="fractalNoise" baseFrequency=".006" numOctaves="3" seed="3" result="w"/>
+    <feDisplacementMap in="n0" in2="w" scale="160" xChannelSelector="R" yChannelSelector="G" result="n"/>
+    <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 0 0 0 0" result="a"/>
+    <feComponentTransfer in="a" result="m"><feFuncA type="table" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1"/></feComponentTransfer>
+    <feFlood flood-color="#c9d6ea"/><feComposite in2="m" operator="in"/></filter>
+<filter id="mid" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".0016 .0022" numOctaves="5" seed="11" result="n0"/>
+    <feTurbulence type="fractalNoise" baseFrequency=".006" numOctaves="3" seed="3" result="w"/>
+    <feDisplacementMap in="n0" in2="w" scale="160" xChannelSelector="R" yChannelSelector="G" result="n"/>
+    <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 0 0 0 0" result="a"/>
+    <feComponentTransfer in="a" result="m"><feFuncA type="table" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.5 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1"/></feComponentTransfer>
+    <feFlood flood-color="#7d9bd0"/><feComposite in2="m" operator="in"/></filter>
+<filter id="blue" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".0016 .0022" numOctaves="5" seed="11" result="n0"/>
+    <feTurbulence type="fractalNoise" baseFrequency=".006" numOctaves="3" seed="3" result="w"/>
+    <feDisplacementMap in="n0" in2="w" scale="160" xChannelSelector="R" yChannelSelector="G" result="n"/>
+    <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 0 0 0 0" result="a"/>
+    <feComponentTransfer in="a" result="m"><feFuncA type="table" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1"/></feComponentTransfer>
+    <feFlood flood-color="#3d5fae"/><feComposite in2="m" operator="in"/></filter>
+<filter id="navy" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".0016 .0022" numOctaves="5" seed="11" result="n0"/>
+    <feTurbulence type="fractalNoise" baseFrequency=".006" numOctaves="3" seed="3" result="w"/>
+    <feDisplacementMap in="n0" in2="w" scale="160" xChannelSelector="R" yChannelSelector="G" result="n"/>
+    <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 0 0 0 0" result="a"/>
+    <feComponentTransfer in="a" result="m"><feFuncA type="table" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0"/></feComponentTransfer>
+    <feFlood flood-color="#1d2c68"/><feComposite in2="m" operator="in"/></filter>
+<filter id="bronze" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".0016 .0022" numOctaves="5" seed="11" result="n0"/>
+    <feTurbulence type="fractalNoise" baseFrequency=".006" numOctaves="3" seed="3" result="w"/>
+    <feDisplacementMap in="n0" in2="w" scale="160" xChannelSelector="R" yChannelSelector="G" result="n"/>
+    <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 0 0 0 0" result="a"/>
+    <feComponentTransfer in="a" result="m"><feFuncA type="table" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"/></feComponentTransfer>
+    <feFlood flood-color="#9a7048"/><feComposite in2="m" operator="in"/></filter>
+<filter id="gold" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".0016 .0022" numOctaves="5" seed="11" result="n0"/>
+    <feTurbulence type="fractalNoise" baseFrequency=".006" numOctaves="3" seed="3" result="w"/>
+    <feDisplacementMap in="n0" in2="w" scale="160" xChannelSelector="R" yChannelSelector="G" result="n"/>
+    <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 0 0 0 0" result="a"/>
+    <feComponentTransfer in="a" result="m"><feFuncA type="table" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"/></feComponentTransfer>
+    <feFlood flood-color="#d6aa55"/><feComposite in2="m" operator="in"/><feMorphology operator="dilate" radius=".6"/></filter>
+<filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="2"/><feColorMatrix type="matrix" values="0 0 0 0 .55  0 0 0 0 .42  0 0 0 0 .24  0 0 0 -2.6 1.55"/></filter>
+  <filter id="flecks" x="0" y="0" width="100%" height="100%"><feTurbulence type="turbulence" baseFrequency=".05" numOctaves="2" seed="9"/><feColorMatrix type="matrix" values="0 0 0 0 .86  0 0 0 0 .68  0 0 0 0 .34  0 0 0 16 -9.2"/></filter>
+  <radialGradient id="vig" cx=".5" cy=".45" r=".75"><stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#2a2a3a" stop-opacity=".22"/></radialGradient>
+  <linearGradient id="wash" x1="0" y1="0" x2="1" y2=".4"><stop offset="0" stop-color="#ffffff" stop-opacity=".25"/><stop offset=".6" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+  </defs>
+<rect width="1600" height="1000" fill="#f4f1ec"/>
+<rect width="1600" height="1000" filter="url(#pale)"/>
+<rect width="1600" height="1000" filter="url(#mid)"/>
+<rect width="1600" height="1000" filter="url(#blue)"/>
+<rect width="1600" height="1000" filter="url(#navy)"/>
+<rect width="1600" height="1000" filter="url(#bronze)"/>
+<rect width="1600" height="1000" filter="url(#gold)"/>
+<rect width="1600" height="1000" filter="url(#flecks)" opacity=".55"/>
+<rect width="1600" height="1000" fill="url(#wash)"/><rect width="1600" height="1000" fill="url(#vig)"/></svg>
