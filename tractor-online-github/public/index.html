@@ -1,155 +1,156 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Panda R-6 Radio</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-<style>
-  :root{--wall1:#e9e1d3;--wall2:#cfc3ae;--desk1:#7a4c2c;--desk2:#4f2f19;--ink:#3d3328;--muted:#7b6d5a;--chip:#fffaf0cc}
-  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--wall1:#2a2623;--wall2:#1a1816;--desk1:#4a2f1c;--desk2:#2a190d;--ink:#efe6d6;--muted:#a3978a;--chip:#2c2724cc}}
-  :root[data-theme="dark"]{--wall1:#2a2623;--wall2:#1a1816;--desk1:#4a2f1c;--desk2:#2a190d;--ink:#efe6d6;--muted:#a3978a;--chip:#2c2724cc}
-  *{box-sizing:border-box}
-  html,body{margin:0;height:100%}
-  body{font-family:Inter,system-ui,sans-serif;color:var(--ink);background:var(--wall2);overflow-x:hidden;
-    background:radial-gradient(1200px 700px at 50% 30%,var(--wall1),var(--wall2));min-height:100vh}
-  .scene{position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:96px 16px 0}
-  .desk{position:absolute;left:0;right:0;bottom:0;height:22vh;min-height:120px;
-    background:repeating-linear-gradient(90deg,rgba(0,0,0,.08) 0 1px,transparent 1px 9px),repeating-linear-gradient(89deg,rgba(255,220,180,.05) 0 2px,transparent 2px 23px),linear-gradient(180deg,var(--desk1),var(--desk2));
-    box-shadow:0 -1px 0 rgba(255,255,255,.25),0 -14px 30px rgba(0,0,0,.18)}
-  .desk::before{content:'';position:absolute;left:0;right:0;top:0;height:10px;background:linear-gradient(rgba(255,255,255,.18),transparent)}
-  .stage{position:relative;z-index:1;margin-bottom:calc(22vh - 34px)}
-  @media (max-height:700px){.stage{margin-bottom:90px}}
-  .stage::after{content:'';position:absolute;left:8%;right:8%;bottom:-18px;height:30px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.45),transparent);z-index:-1}
-  header{position:absolute;top:0;left:0;right:0;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:18px 20px;z-index:2}
-  h1{margin:0;font:800 15px/1 Inter;letter-spacing:.32em;text-transform:uppercase}
-  h1 span{display:block;margin-top:6px;font:500 11px/1.3 Inter;letter-spacing:.02em;text-transform:none;color:var(--muted)}
-  .bar{display:flex;gap:6px;flex-wrap:wrap;background:var(--chip);backdrop-filter:blur(8px);padding:5px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.12)}
-  .bar button{font:600 12px Inter;color:var(--ink);background:transparent;border:0;padding:7px 11px;border-radius:8px;cursor:pointer}
-  .bar button[aria-pressed=true]{background:var(--ink);color:var(--wall1)}
-  .app{display:none;position:fixed;inset:84px 40px 40px;border-radius:14px;background:#fff;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden;z-index:1;color:#333}
-  .app .tb{height:38px;background:#f1f1f1;border-bottom:1px solid #e2e2e2;display:flex;align-items:center;gap:7px;padding:0 14px}
-  .app .tb i{width:11px;height:11px;border-radius:50%;background:#ff5f57}.app .tb i:nth-child(2){background:#febc2e}.app .tb i:nth-child(3){background:#28c840}
-  .app .ct{padding:28px;display:grid;gap:14px}
-  .app .ln{height:12px;border-radius:6px;background:#ececec}
-  .app p{margin:0;color:#888;font-size:13px}
-  body.floating .app{display:block}
-  body.floating .stage{visibility:hidden}
-  /* Wall pictures (desk view). Painted for this project, free to share. */
-  body[data-wall=beach]{background:#f3b48a url(walls/beach.svg) center 30%/cover no-repeat fixed}
-  body[data-wall=marble]{background:#e9eef6 url(walls/marble.svg) center/cover no-repeat fixed}
-  body[data-wall=spring]{background:#9fc0e0 url(walls/spring-train.gif) center 62%/cover no-repeat fixed}
-  body[data-wall=evening]{background:#e7b79a url(walls/evening-train.gif) center 62%/cover no-repeat fixed}
-  body[data-wall=mine]{background:#333 var(--mywall,none) center/cover no-repeat fixed}
-  body:not([data-wall=plain]) h1{background:var(--chip);backdrop-filter:blur(8px);padding:9px 12px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.12)}
-  .tools{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-  .walls button{min-width:0}
-  body.floating .walls{display:none}
-  .stage.moved::after{display:none}
-  @media (max-width:560px){header{padding:12px 16px}.app{inset:110px 16px 16px}}
-</style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Tractor Online (升级拖拉机)</title>
+<link rel="stylesheet" href="style.css">
 </head>
-<body data-wall="marble">
-<div class="scene">
-  <header>
-    <h1>Panda R-6<span>AM · FM · MP3 · Bluetooth · drag the handle or speaker to move it</span></h1>
-    <div class="tools">
-    <div class="bar walls" role="group" aria-label="Wall picture">
-      <button data-wall="plain" aria-pressed="false">Plain wall</button>
-      <button data-wall="beach" aria-pressed="false">Beach</button>
-      <button data-wall="marble" aria-pressed="true">Marble</button>
-      <button data-wall="spring" aria-pressed="false" title="皖南 rapeseed fields, spring morning">Spring train</button>
-      <button data-wall="evening" aria-pressed="false" title="皖南 rapeseed fields, golden evening">Evening train</button>
-      <button data-wall="mine" aria-pressed="false" title="Use your own picture (stays private in this browser). Click again to change it.">My picture…</button>
-      <input type="file" accept="image/*" hidden id="wallFile">
-    </div>
-    <div class="bar views" role="group" aria-label="View">
-      <button data-view="desk" aria-pressed="true">On the desk</button>
-      <button data-view="bottom-left" aria-pressed="false">Float ↙</button>
-      <button data-view="bottom-right" aria-pressed="false">Float ↘</button>
-      <button data-view="mini" aria-pressed="false">Mini</button>
-    </div>
-    </div>
-  </header>
 
-  <div class="app" aria-hidden="true">
-    <div class="tb"><i></i><i></i><i></i></div>
-    <div class="ct">
-      <p>Pretend this is another app. The radio floats over it — drag it by its handle to any corner.</p>
-      <div class="ln" style="width:62%"></div><div class="ln" style="width:88%"></div><div class="ln" style="width:74%"></div>
-      <div class="ln" style="width:40%"></div><div class="ln" style="width:81%"></div>
+<script src="songs/playlist.js"></script>
+<script src="radio.js"></script>
+<retro-radio floating corner="bottom-right" scale="0.7"></retro-radio>
+
+
+<body>
+<div id="app">
+
+  <!-- Language toggle: visible in every view; the two rules boxes below
+       are deliberately NOT translated (they are already bilingual). -->
+  <div id="lang-bar">
+    <div class="lang-toggle">
+      <button id="lang-zh" type="button">中文</button><button id="lang-en" type="button" class="on">EN</button>
     </div>
   </div>
 
-  <div class="stage"><retro-radio id="radio" movable></retro-radio></div>
-  <div class="desk"></div>
+  <!-- Landing -->
+  <section id="view-landing" class="view">
+    <h1 data-i18n="titleText">🚜 Tractor Online <span class="cn">升级拖拉机</span></h1>
+    <p class="sub" data-i18n="sub">Real-time multiplayer Shengji — host it yourself, play with friends.</p>
+    <label data-i18n="yourName">Your name <input id="in-name" maxlength="16" placeholder="e.g. Alex" data-i18n-ph="namePh"></label>
+    <label data-i18n="tableSize">Table size
+      <select id="in-size">
+        <option value="2" data-i18n="size1v1">1 v 1 (1 deck + extra jokers)</option>
+        <option value="4" data-i18n="size2v2">2 v 2</option>
+        <option value="6" selected data-i18n="size3v3">3 v 3</option>
+        <option value="8" data-i18n="size4v4">4 v 4</option>
+        <option value="10" data-i18n="size5v5">5 v 5</option>
+      </select>
+    </label>
+    <label data-i18n="dealSpeed">Deal speed
+      <select id="in-speed">
+        <option value="instant" data-i18n="speedInstant">Instant — all at once</option>
+        <option value="fast" selected data-i18n="speedFast">Fast</option>
+        <option value="normal" data-i18n="speedNormal">Normal</option>
+        <option value="slow" data-i18n="speedSlow">Slow</option>
+      </select>
+    </label>
+    <div class="row">
+      <button id="btn-create" class="primary" data-i18n="createRoom">Create Room</button>
+    </div>
+    <div id="fixed-room" class="hidden">
+      <div class="divider" data-i18n="fixedDivider">your fixed room</div>
+      <p class="hint"><span data-i18n="fixedLead">This link is for room </span><b id="fixed-code"></b><span data-i18n="fixedTail">. Type your name above, then:</span></p>
+      <div class="row">
+        <button id="btn-enter" class="primary" data-i18n="enterRoom">Enter Room</button>
+      </div>
+      <p class="hint" data-i18n="fixedNote">First time, the room is created for you. After that, this same link joins it.</p>
+    </div>
+    <div class="divider" data-i18n="orJoin">or join</div>
+    <label data-i18n="roomCode">Room code <input id="in-code" maxlength="6" placeholder="ABCDEF" autocapitalize="characters"></label>
+    <div class="row">
+      <button id="btn-join" class="primary" data-i18n="joinRoom">Join Room</button>
+    </div>
+    <p id="landing-err" class="err"></p>
+    <p class="hint" data-i18n-html="landingNoteHtml">Human multiplayer only — no AI players in this server version.<br>
+    If you disconnect, rejoin with the same name + code to reclaim your seat.</p>
+
+    <div class="rules-wrap">
+      <div class="rules">
+        <h3>Bidding rules <span class="cn">叫主规则</span></h3>
+        <ul>
+          <li>A bid names the trump suit: show 1 level card of a suit, or a pair of them. If your bid stands when bidding ends, that suit is trump.</li>
+          <li>You can bid while the cards are being dealt, using the level cards you have received so far. After the deal there is a final round of bidding, in turn, before the ZhuangJia taking the "Dipai" (底牌).</li>
+          <li>Anyone at the table can bid — it doesn't matter whether the player is on the ZhuangJia team or non-ZhuangJia team.</li>
+          <li>A later bid must show MORE cards than the bid before it: a pair takes a single, but a pair cannot take a pair — the first bidder keeps it.</li>
+          <li>Bidding does not change the ZhuangJia. ZhuangJia will pick up the bottom cards and bury the same number back. The winner of Bidding can be ZhuangJia or non-ZhuangJia.</li>
+          <li>If nobody bids at all, all the bottom cards are flipped over one by one — the suit of the last bottom card is trump.</li>
+        </ul>
+      </div>
+      <div class="rules">
+        <h3>叫主规则（中文）</h3>
+        <ul>
+          <li>叫主决定主牌花色：亮出一张某花色的级牌，或一对该花色的级牌。若你的叫主在叫主结束时仍成立，该花色即为主牌。</li>
+          <li>发牌时即可叫主，使用已发到手上的级牌。发牌结束后，再进行最后一轮轮流叫主，然后由庄家拿底牌。</li>
+          <li>桌上任何人都可以叫主——不论是庄家一方，还是非庄家一方。</li>
+          <li>后叫主出示的牌必须比前一位多：一对可压单张，一对不能压一对——先叫者优先。</li>
+          <li>叫主不改变庄家。由庄家拿起底牌，再扣回相同数目的牌。叫主赢家可以是庄家，也可以是非庄家。</li>
+          <li>若无人叫主，逐张翻开全部底牌——以最后一张底牌的花色定主。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Lobby -->
+  <section id="view-lobby" class="view hidden">
+    <div id="players-bar-lobby" class="players-bar"></div>
+    <h2 data-i18n="roomWord">Room <span id="lobby-code" class="code"></span></h2>
+    <p class="sub" data-i18n="lobbySub">Share the code (or this page's link) with friends.</p>
+    <div id="lobby-seats" class="seats"></div>
+    <div class="row">
+      <button id="btn-start" class="primary" data-i18n="startRound">Start Round</button>
+      <button id="btn-leave-lobby" data-i18n="leave">Leave</button>
+    </div>
+    <p id="lobby-err" class="err"></p>
+  </section>
+
+  <!-- Game -->
+  <section id="view-game" class="view hidden">
+    <div id="players-bar" class="players-bar"></div>
+    <div id="scorebar" class="scorebar"></div>
+    <div id="phase-banner" class="banner"></div>
+
+    <div id="bid-panel" class="panel hidden">
+      <h3 data-i18n="biddingText">Bidding <span class="cn">叫主</span></h3>
+      <p id="bid-status"></p>
+      <div id="bid-current"></div>
+      <div class="bid-grid" id="bid-buttons"></div>
+      <p id="bid-note" class="hint"></p>
+      <button id="btn-pass-bid" data-i18n="pass">Pass</button>
+      <p class="hint" id="bid-hint" data-i18n-html="bidHintHtml">Bid with your <b>level card</b>: 1 card, or a pair. During the deal you can bid with the level cards you hold so far.<br>
+      A later bid must show more cards: a pair overcalls a single, but a pair cannot overcall a pair (first bidder keeps it).</p>
+    </div>
+
+    <div id="bury-panel" class="panel hidden">
+      <h3 data-i18n="buryText">Bury the bottom <span class="cn">扣底</span></h3>
+      <p data-i18n-html="buryInfoHtml">You picked up the 6 bottom cards. Select <b>exactly 6</b> cards to bury.</p>
+      <button id="btn-bury" class="primary">Bury selected (0/6)</button>
+    </div>
+
+    <div id="table" class="table"></div>
+
+    <div id="hand-zone">
+      <div class="row space-between">
+        <h3 data-i18n="yourHand">Your hand <span id="hand-count"></span></h3>
+        <button id="btn-play" class="primary" data-i18n="playSelected">Play selected</button>
+      </div>
+      <div id="hand" class="hand"></div>
+      <p id="play-hint" class="hint"></p>
+    </div>
+
+    <div id="result-panel" class="panel hidden"></div>
+
+    <div class="row">
+      <input id="in-chat" maxlength="200" placeholder="Chat…" data-i18n-ph="chatPh">
+      <button id="btn-chat" data-i18n="send">Send</button>
+    </div>
+    <div id="log" class="log"></div>
+    <div id="chatlog" class="log chat"></div>
+  </section>
+
 </div>
-
-<!-- Optional: songs bundled with the app (see README). Missing file is fine. -->
-<script src="songs/playlist.js" onerror="this.remove()"></script>
-<script src="radio.js"></script>
-<script>
-  const radio = document.getElementById('radio');
-  const stage = document.querySelector('.stage');
-  const fit = () => {
-    if (radio.hasAttribute('floating')) return;
-    const vw = document.documentElement.clientWidth || innerWidth, vh = document.documentElement.clientHeight || innerHeight;
-    const z = Math.min(1.35, (vw - 32) / 520, (vh - 150) / 520);
-    radio.setAttribute('scale', Math.max(0.55, z).toFixed(3));
-  };
-  function setView(v) {
-    document.querySelectorAll('.views button').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === v));
-    const floating = v !== 'desk';
-    document.body.classList.toggle('floating', floating);
-    radio.toggleAttribute('floating', floating);
-    radio.toggleAttribute('mini', v === 'mini');
-    if (floating) {
-      if (v !== 'mini') radio.setAttribute('corner', v);
-      else if (!radio.getAttribute('corner')) radio.setAttribute('corner', 'bottom-right');
-      radio.setAttribute('scale', innerWidth < 600 ? '0.62' : '0.72');
-      document.body.appendChild(radio);
-    } else {
-      stage.appendChild(radio); fit();
-    }
-  }
-  document.querySelector('.views').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setView(b.dataset.view); });
-  radio.addEventListener('radio-corner', e => {
-    document.querySelectorAll('.views button').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === (radio.hasAttribute('mini') ? 'mini' : e.detail.corner)));
-  });
-  addEventListener('resize', fit); fit();
-  // keep the radio below the header buttons so its handle can always be grabbed
-  const safeTop = () => radio.setAttribute('safe-top', Math.ceil(document.querySelector('header').getBoundingClientRect().bottom + 4));
-  safeTop(); addEventListener('resize', safeTop);
-  const moved = (p) => stage.classList.toggle('moved', !!(p && (p.x || p.y)));
-  radio.addEventListener('radio-move', e => moved(e.detail)); moved(radio._pos);
-
-  // ---- Wall picture switcher (choice remembered; "My picture" is kept in this browser only) ----
-  const WALL_KEY = 'panda-r6:wall', fileIn = document.getElementById('wallFile');
-  const db = () => new Promise((ok, no) => { const r = indexedDB.open('panda-r6-wall', 1); r.onupgradeneeded = () => r.result.createObjectStore('pic'); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
-  const picGet = async () => { try { const d = await db(); return await new Promise((ok) => { const q = d.transaction('pic').objectStore('pic').get('mine'); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); }); } catch (e) { return null; } };
-  const picSet = async (blob) => { try { const d = await db(); d.transaction('pic', 'readwrite').objectStore('pic').put(blob, 'mine'); } catch (e) {} };
-  let picUrl = null;
-  const showPic = (blob) => { if (picUrl) URL.revokeObjectURL(picUrl); picUrl = URL.createObjectURL(blob); document.body.style.setProperty('--mywall', `url("${picUrl}")`); };
-  function setWall(w) {
-    document.body.dataset.wall = w;
-    document.querySelectorAll('.walls button').forEach(b => b.setAttribute('aria-pressed', b.dataset.wall === w));
-    try { localStorage.setItem(WALL_KEY, w); } catch (e) {}
-  }
-  document.querySelector('.walls').addEventListener('click', async e => {
-    const b = e.target.closest('button'); if (!b) return;
-    if (b.dataset.wall !== 'mine') return setWall(b.dataset.wall);
-    // first time, or clicked again while showing: choose a picture
-    if (!picUrl || document.body.dataset.wall === 'mine') return fileIn.click();
-    setWall('mine');
-  });
-  fileIn.addEventListener('change', () => { const f = fileIn.files[0]; if (!f) return; showPic(f); picSet(f); setWall('mine'); fileIn.value = ''; });
-  (async () => {
-    let w = 'marble'; try { w = localStorage.getItem(WALL_KEY) || 'marble'; } catch (e) {}
-    const pic = await picGet(); if (pic) showPic(pic);
-    setWall(w === 'mine' && !pic ? 'marble' : w);
-  })();
-</script>
+<div id="toast" class="toast hidden"></div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
